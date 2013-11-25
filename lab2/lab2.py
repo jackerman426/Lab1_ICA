@@ -41,9 +41,16 @@ class Node(object):
     def receive_msg(self, other, msg):
         # Store the incomming message, replacing previous messages from the same node
         self.in_msgs[other] = msg
-
-        # TODO: add pending messages
-        # self.pending.update(...)
+        if(len(self.in_msgs) == len(self.neighbours)):
+            for neighbour in self.neighbours:
+                self.pending.add(neighbour)
+        if(len(self.in_msgs) == len(self.neighbours) - 1):
+            receiver_node = None
+            for neighbour in self.neighbours:
+                if neighbour not in self.in_msgs:
+                    receiver_node = neighbour
+                    break
+            self.pending.add(receiver_node)
     
     def __str__(self):
         # This is printed when using 'print node_instance'
@@ -100,29 +107,33 @@ class Variable(Node):
          Z is either equal to the input Z, or computed in this function (if Z=None was passed).
         """
         # TODO: compute marginal
-        return None, None
+        marginal = np.ones(2)
+        for neighbour in self.neighbours:
+            marginal = np.multiply(marginal, self.in_msgs[neighbour])
+        if Z is None:
+            Z = sum(marginal)
+        marginal /= Z
+        return marginal, Z
     
     def send_sp_msg(self, other):
-        if len(self.in_msgs) > 0:
-            for n,k in self.in_msgs.iteritems():
-                other.receive_msg(self, k)
-        if len(self.neighbours) == 1:
+        num_neighbours = len(self.neighbours)
+        if num_neighbours == 1:
             message = np.ones(self.num_states)
             other.receive_msg(self, message)
         else:
             vectors = []
-            num = 0
-            num_neighbours = len(self.neighbours)
+            num_of_incoming_messages = 0
             for neighbour in self.neighbours:
                 if neighbour is not other and neighbour in self.in_msgs:
-                    num += 1
-            if num == num_neighbours - 1:
+                    num_of_incoming_messages += 1
+            if num_of_incoming_messages == num_neighbours - 1:
+                message = np.ones(2)
                 for neighbour in self.neighbours:
                     if neighbour is not other:
-                        vectors.append(self.in_msgs[neighbour])
-
-
-
+                        message = np.multiply(message, self.in_msgs[neighbour])
+                other.receive_msg(self, message)
+                self.pending.remove(other)
+                self.pending
 
     def send_ms_msg(self, other):
         # TODO: implement Variable -> Factor message for max-sum
@@ -162,12 +173,12 @@ class Factor(Node):
             other.receive_msg(self, message)
             print message
         else:            
-            num = 0
+            num_of_incoming_messages = 0
             num_neighbours = len(self.neighbours)
             for neighbour in self.neighbours:
                 if neighbour is not other and neighbour in self.in_msgs:
-                    num += 1
-            if num == num_neighbours - 1:
+                    num_of_incoming_messages += 1
+            if num_of_incoming_messages == num_neighbours - 1:
                 for neighbour in self.neighbours:
                     if neighbour is not other:
                         vectors.append(self.in_msgs[neighbour])
@@ -180,6 +191,7 @@ class Factor(Node):
                 direction = filter(lambda i: not i == index, range(num_neighbours))
                 message = np.tensordot(self.f, tensor, axes=(direction, range(tensor.ndim)))
                 other.receive_msg(self, np.array([0.5, 0.5]))
+                self.pending.remove(other)
                 print message
 
    
@@ -233,6 +245,3 @@ variable_list["Bronchitis"].send_sp_msg(factor_list["Wheezing"])
 #level 4
 factor_list["Coughing"].send_sp_msg(variable_list["Coughing"])
 factor_list["Wheezing"].send_sp_msg(variable_list["Wheezing"])
-
-# test
-variable_list["Wheezing"].send_sp_msg(factor_list["Wheezing"])
