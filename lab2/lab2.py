@@ -36,18 +36,19 @@ class Node(object):
         raise Exception('Method send_ms_msg not implemented in base-class Node')
     
     def receive_msg(self, other, msg):
+        print self, other, msg
         # Store the incomming message, replacing previous messages from the same node
         self.in_msgs[other] = msg
-        if(len(self.in_msgs) == len(self.neighbours)):
+        print "m ", len(self.in_msgs),"n ", len(self.neighbours)
+        if len(self.in_msgs) == len(self.neighbours):
             for neighbour in self.neighbours:
                 self.pending.add(neighbour)
-        if(len(self.in_msgs) == len(self.neighbours) - 1):
-            receiver_node = None
+        if len(self.in_msgs) == len(self.neighbours) - 1:
             for neighbour in self.neighbours:
                 if neighbour not in self.in_msgs:
-                    receiver_node = neighbour
+                    self.pending.add(neighbour)
                     break
-            self.pending.add(receiver_node)
+            
     
     def __str__(self):
         # This is printed when using 'print node_instance'
@@ -104,19 +105,19 @@ class Variable(Node):
          Z is either equal to the input Z, or computed in this function (if Z=None was passed).
         """
         # TODO: compute marginal
-        marginal = np.ones(2)
-        for neighbour in self.neighbours:
-            marginal = np.multiply(marginal, self.in_msgs[neighbour])
-        if Z is None:
-            Z = sum(marginal)
-        marginal /= Z
+        marginal = self.observed_state
+        if len(self.in_msgs) == len(self.neighbours):
+            for neighbour in self.neighbours:
+                marginal = np.multiply(marginal, self.in_msgs[neighbour.name])
+            if Z is None:
+                Z = sum(marginal)
+            marginal /= Z
         return marginal, Z
     
     def send_sp_msg(self, other):
         num_neighbours = len(self.neighbours)
         if num_neighbours == 1:
-            message = np.ones(self.num_states)
-            other.receive_msg(self, message)
+            other.receive_msg(self, self.observed_state)
         else:
             vectors = []
             num_of_incoming_messages = 0
@@ -128,9 +129,9 @@ class Variable(Node):
                 for neighbour in self.neighbours:
                     if neighbour is not other:
                         message = np.multiply(message, self.in_msgs[neighbour])
+                        message = np.multiply(message, self.observed_state)
                 other.receive_msg(self, message)
-                self.pending.remove(other)
-                self.pending
+                # self.pending.remove(other)
 
     def send_ms_msg(self, other):
         # TODO: implement Variable -> Factor message for max-sum
@@ -163,12 +164,12 @@ class Factor(Node):
     def send_sp_msg(self, other):
         # TODO: implement Factor -> Variable message for sum-product
         vectors = []
-        print "------factor--------", self.name
-        print "--------"
+        # print "------factor--------", self.name
+        # print "--------"
         if len(self.neighbours) == 1:
             message = self.f
             other.receive_msg(self, message)
-            print message
+            # print message
         else:            
             num_of_incoming_messages = 0
             num_neighbours = len(self.neighbours)
@@ -188,13 +189,25 @@ class Factor(Node):
                 direction = filter(lambda i: not i == index, range(num_neighbours))
                 message = np.tensordot(self.f, tensor, axes=(direction, range(tensor.ndim)))
                 other.receive_msg(self, np.array([0.5, 0.5]))
-                self.pending.remove(other)
-                print message
+                # self.pending.remove(other)
+                # print message
 
    
     def send_ms_msg(self, other):
         # TODO: implement Factor -> Variable message for max-sum
-        pass
+        vectors = []
+        num_of_incoming_messages = 0
+        num_neighbours = len(self.neighbours)
+        for neighbour in self.neighbours:
+            if neighbour is not other and neighbour in self.in_msgs:
+                num_of_incoming_messages += 1
+        if num_of_incoming_messages == num_neighbours - 1:
+            for neighbour in self.neighbours:
+                if neighbour is not other:
+                    vectors.append(self.in_msgs[neighbour])
+
+        print vectors
+        
 
 
 class Factor_Graph(object):
@@ -203,6 +216,7 @@ class Factor_Graph(object):
         self.variable_list = {}
         self.factor_list = {}
         self.node_list = []
+        self.ordered_node_list = []
 
     def instantiate_network(self):
         # variables and factors in the right order in order to run sum-product algorithm
@@ -217,50 +231,66 @@ class Factor_Graph(object):
         self.variable_list["Coughing"] = Variable("Coughing", 2)
         self.variable_list["Wheezing"] = Variable("Wheezing", 2)
         # factself.ors
-        self.factor_list["F_Influenza"] = Factor("F_Influenza", np.array([0.05, 0.95]), [self.variable_list["Influenza"]])
-        self.factor_list["F_Smokes"] = Factor("F_Smokes", np.array([0.2, 0.8]), [self.variable_list["Smokes"]])
-        self.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", np.array([[0.3, 0.001],[ 0.7, 0.999]]), [self.variable_list["SoreThroat"], self.variable_list["Influenza"]])
-        self.factor_list["F_Fever"] = Factor("F_Fever", np.array([[0.9, 0.05],[ 0.1, 0.95]]), [self.variable_list["Fever"], self.variable_list["Influenza"]])
-        self.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , [self.variable_list["Bronchitis"],self.variable_list["Influenza"], self.variable_list["Smokes"]])
-        self.factor_list["F_Coughing"] = Factor("F_Coughing", np.array([[0.8, 0.07],[ 0.2, 0.93]]), [self.variable_list["Coughing"], self.variable_list["Bronchitis"]])
-        self.factor_list["F_Wheezing"] = Factor("F_Wheezing", np.array([[0.6, 0.001],[ 0.4, 0.999]]), [self.variable_list["Wheezing"], self.variable_list["Bronchitis"]])
+        self.factor_list["F_Influenza"] = Factor("F_Influenza", 
+            np.array([0.05, 0.95]), 
+            [self.variable_list["Influenza"]])
+        self.factor_list["F_Smokes"] = Factor("F_Smokes", 
+            np.array([0.2, 0.8]), 
+            [self.variable_list["Smokes"]])
+        self.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
+            np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
+            [self.variable_list["SoreThroat"], self.variable_list["Influenza"]])
+        self.factor_list["F_Fever"] = Factor("F_Fever", 
+            np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
+            [self.variable_list["Fever"], self.variable_list["Influenza"]])
+        self.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
+            np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
+            [self.variable_list["Bronchitis"],self.variable_list["Influenza"], self.variable_list["Smokes"]])
+        self.factor_list["F_Coughing"] = Factor("F_Coughing", 
+            np.array([[0.8, 0.07],[ 0.2, 0.93]]), [self.variable_list["Coughing"], 
+            self.variable_list["Bronchitis"]])
+        self.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
+            np.array([[0.6, 0.001],[ 0.4, 0.999]]), [self.variable_list["Wheezing"], 
+            self.variable_list["Bronchitis"]])
 
-    # 1.6
-    def sum_product(self):
-        real_list = []
-        print len(self.node_list)
+    def initialize_node_list(self):
         for node in self.node_list:
             if node in self.variable_list:
                 if len(self.variable_list[node].neighbours) == 1:
                     self.variable_list[node].pending.add(self.variable_list[node].neighbours[0])
-                real_list.append(self.variable_list[node])
+                self.ordered_node_list.append(self.variable_list[node])
             else:
-                real_list.append(self.factor_list[node])
-        print len(real_list)
+                if len(self.factor_list[node].neighbours) == 1:
+                    self.factor_list[node].pending.add(self.factor_list[node].neighbours[0])
+                self.ordered_node_list.append(self.factor_list[node])
 
-# # level 0
-# factor_list["F_Influenza"].send_sp_msg(variable_list["Influenza"])
-# factor_list["F_Smokes"].send_sp_msg(variable_list["Smokes"])
+    # 1.6
+    def sum_product(self):
+        self.initialize_node_list()
+        pending_messages = []
+        for node in self.ordered_node_list:
+            for i in range(len(node.pending)):
+                pending_messages.append((node, node.pending.pop()))
+        for pm in pending_messages:
+            pm[0].send_sp_msg(pm[1])
 
-# # level 1
-# variable_list["Influenza"].send_sp_msg(factor_list["F_SoreThroat"])
-# variable_list["Influenza"].send_sp_msg(factor_list["F_Fever"])
-# variable_list["Influenza"].send_sp_msg(factor_list["F_Bronchitis"])
-# variable_list["Smokes"].send_sp_msg(factor_list["F_Bronchitis"])
+        pending_reversed_messages = []
+        for node in reversed(self.ordered_node_list):
+            for i in range(len(node.pending)):
+                pending_reversed_messages.append((node, node.pending.pop()))
+        for pm in pending_reversed_messages:
+            pm[0].send_sp_msg(pm[1])
 
-# #level 2
-# factor_list["F_SoreThroat"].send_sp_msg(variable_list["SoreThroat"])
-# factor_list["F_Fever"].send_sp_msg(variable_list["Fever"])
-# factor_list["F_Bronchitis"].send_sp_msg(variable_list["Bronchitis"])
 
-# #level F_3
-# variable_list["Bronchitis"].send_sp_msg(factor_list["F_Coughing"])
-# variable_list["Bronchitis"].send_sp_msg(factor_list["F_Wheezing"])
+    # 2.1 Max-Sum
+    def max_sum(self):
+        self.initialize_node_list()
 
-# #level 4
-# factor_list["F_Coughing"].send_sp_msg(variable_list["Coughing"])
-# factor_list["F_Wheezing"].send_sp_msg(variable_list["Wheezing"])
+
+
+
 
 testNetwork = Factor_Graph()
 testNetwork.instantiate_network()
+# testNetwork.sum_product()
 testNetwork.sum_product()
