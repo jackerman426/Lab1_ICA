@@ -1,8 +1,5 @@
 import numpy as np
 
-variable_list = {}
-factor_parent_list = {}
-factor_list = {}
 class Node(object):
     """
     Base-class for Nodes in a factor graph. Only instantiate sub-classes of Node.
@@ -199,49 +196,71 @@ class Factor(Node):
         # TODO: implement Factor -> Variable message for max-sum
         pass
 
-variable_list["Influenza"] = Variable("Influenza", 2)
-variable_list["Smokes"] = Variable("Smokes", 2)
-variable_list["SoreThroat"] = Variable("SoreThroat", 2)
-variable_list["Fever"] = Variable("Fever", 2)
-variable_list["Bronchitis"] = Variable("Bronchitis", 2)
-variable_list["Coughing"] = Variable("Coughing", 2)
-variable_list["Wheezing"] = Variable("Wheezing", 2)
 
-factor_parent_list["Influenza"] = {}
-factor_parent_list["Smokes"] = {}
-factor_parent_list["SoreThroat"] = {"Influenza": None}
-factor_parent_list["Fever"] = {"Influenza": None}
-factor_parent_list["Bronchitis"] = {"Influenza": None, "Smokes":None}
-factor_parent_list["Coughing"] = {"Bronchitis": None}
-factor_parent_list["Wheezing"] = {"Bronchitis": None}
+class Factor_Graph(object):
+    def __init__(self):
+        # lists and dictionaries for variables and factors
+        self.variable_list = {}
+        self.factor_list = {}
+        self.node_list = []
 
-factor_list["Influenza"] = Factor("Influenza", np.array([0.05, 0.95]), [variable_list["Influenza"]])
-factor_list["Smokes"] = Factor("Smokes", np.array([0.2, 0.8]), [variable_list["Smokes"]])
-factor_list["SoreThroat"] = Factor("SoreThroat", np.array([[0.3, 0.001],[ 0.7, 0.999]]), [variable_list["SoreThroat"], variable_list["Influenza"]])
-factor_list["Fever"] = Factor("Fever", np.array([[0.9, 0.05],[ 0.1, 0.95]]), [variable_list["Fever"], variable_list["Influenza"]])
-factor_list["Bronchitis"] = Factor("Bronchitis", np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , [variable_list["Bronchitis"],variable_list["Influenza"], variable_list["Smokes"]])
-factor_list["Coughing"] = Factor("Coughing", np.array([[0.8, 0.07],[ 0.2, 0.93]]), [variable_list["Coughing"], variable_list["Bronchitis"]])
-factor_list["Wheezing"] = Factor("Wheezing", np.array([[0.6, 0.001],[ 0.4, 0.999]]), [variable_list["Wheezing"], variable_list["Bronchitis"]])
+    def instantiate_network(self):
+        # variables and factors in the right order in order to run sum-product algorithm
+        self.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
+        "F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "F_Bronchitis", "Bronchitis"]
+        # variables
+        self.variable_list["Influenza"] = Variable("Influenza", 2)
+        self.variable_list["Smokes"] = Variable("Smokes", 2)
+        self.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
+        self.variable_list["Fever"] = Variable("Fever", 2)
+        self.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
+        self.variable_list["Coughing"] = Variable("Coughing", 2)
+        self.variable_list["Wheezing"] = Variable("Wheezing", 2)
+        # factself.ors
+        self.factor_list["F_Influenza"] = Factor("F_Influenza", np.array([0.05, 0.95]), [self.variable_list["Influenza"]])
+        self.factor_list["F_Smokes"] = Factor("F_Smokes", np.array([0.2, 0.8]), [self.variable_list["Smokes"]])
+        self.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", np.array([[0.3, 0.001],[ 0.7, 0.999]]), [self.variable_list["SoreThroat"], self.variable_list["Influenza"]])
+        self.factor_list["F_Fever"] = Factor("F_Fever", np.array([[0.9, 0.05],[ 0.1, 0.95]]), [self.variable_list["Fever"], self.variable_list["Influenza"]])
+        self.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , [self.variable_list["Bronchitis"],self.variable_list["Influenza"], self.variable_list["Smokes"]])
+        self.factor_list["F_Coughing"] = Factor("F_Coughing", np.array([[0.8, 0.07],[ 0.2, 0.93]]), [self.variable_list["Coughing"], self.variable_list["Bronchitis"]])
+        self.factor_list["F_Wheezing"] = Factor("F_Wheezing", np.array([[0.6, 0.001],[ 0.4, 0.999]]), [self.variable_list["Wheezing"], self.variable_list["Bronchitis"]])
 
-# level 0
-factor_list["Influenza"].send_sp_msg(variable_list["Influenza"])
-factor_list["Smokes"].send_sp_msg(variable_list["Smokes"])
+    # 1.6
+    def sum_product(self):
+        real_list = []
+        print len(self.node_list)
+        for node in self.node_list:
+            if node in self.variable_list:
+                if len(self.variable_list[node].neighbours) == 1:
+                    self.variable_list[node].pending.add(self.variable_list[node].neighbours[0])
+                real_list.append(self.variable_list[node])
+            else:
+                real_list.append(self.factor_list[node])
+        print len(real_list)
 
-# level 1
-variable_list["Influenza"].send_sp_msg(factor_list["SoreThroat"])
-variable_list["Influenza"].send_sp_msg(factor_list["Fever"])
-variable_list["Influenza"].send_sp_msg(factor_list["Bronchitis"])
-variable_list["Smokes"].send_sp_msg(factor_list["Bronchitis"])
+# # level 0
+# factor_list["F_Influenza"].send_sp_msg(variable_list["Influenza"])
+# factor_list["F_Smokes"].send_sp_msg(variable_list["Smokes"])
 
-#level 2
-factor_list["SoreThroat"].send_sp_msg(variable_list["SoreThroat"])
-factor_list["Fever"].send_sp_msg(variable_list["Fever"])
-factor_list["Bronchitis"].send_sp_msg(variable_list["Bronchitis"])
+# # level 1
+# variable_list["Influenza"].send_sp_msg(factor_list["F_SoreThroat"])
+# variable_list["Influenza"].send_sp_msg(factor_list["F_Fever"])
+# variable_list["Influenza"].send_sp_msg(factor_list["F_Bronchitis"])
+# variable_list["Smokes"].send_sp_msg(factor_list["F_Bronchitis"])
 
-#level 3
-variable_list["Bronchitis"].send_sp_msg(factor_list["Coughing"])
-variable_list["Bronchitis"].send_sp_msg(factor_list["Wheezing"])
+# #level 2
+# factor_list["F_SoreThroat"].send_sp_msg(variable_list["SoreThroat"])
+# factor_list["F_Fever"].send_sp_msg(variable_list["Fever"])
+# factor_list["F_Bronchitis"].send_sp_msg(variable_list["Bronchitis"])
 
-#level 4
-factor_list["Coughing"].send_sp_msg(variable_list["Coughing"])
-factor_list["Wheezing"].send_sp_msg(variable_list["Wheezing"])
+# #level F_3
+# variable_list["Bronchitis"].send_sp_msg(factor_list["F_Coughing"])
+# variable_list["Bronchitis"].send_sp_msg(factor_list["F_Wheezing"])
+
+# #level 4
+# factor_list["F_Coughing"].send_sp_msg(variable_list["Coughing"])
+# factor_list["F_Wheezing"].send_sp_msg(variable_list["Wheezing"])
+
+testNetwork = Factor_Graph()
+testNetwork.instantiate_network()
+testNetwork.sum_product()
