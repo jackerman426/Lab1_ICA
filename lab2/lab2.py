@@ -134,8 +134,27 @@ class Variable(Node):
                 # self.pending.remove(other)
 
     def send_ms_msg(self, other):
+        # http://www.cedar.buffalo.edu/~srihari/CSE574/Chap8/Ch8-GraphicalModelInference/Ch8.3.3-Max-SumAlg.pdf
         # TODO: implement Variable -> Factor message for max-sum
-        pass
+        num_neighbours = len(self.neighbours)
+        if num_neighbours == 1:
+            other.receive_msg(self, self.observed_state)
+        else:
+            vectors = []
+            num_of_incoming_messages = 0
+            for neighbour in self.neighbours:
+                if neighbour is not other and neighbour in self.in_msgs:
+                    num_of_incoming_messages += 1
+            if num_of_incoming_messages == num_neighbours - 1:
+                for neighbour in self.neighbours:
+                    if neighbour is not other:
+                        vectors.append(vectors)
+                message = np.add.reduce(vectors)
+                message = np.multiply(message, self.observed_state)
+                other.receive_msg(self,message)
+
+
+                    
 
 class Factor(Node):
     def __init__(self, name, f, neighbours):
@@ -164,12 +183,8 @@ class Factor(Node):
     def send_sp_msg(self, other):
         # TODO: implement Factor -> Variable message for sum-product
         vectors = []
-        # print "------factor--------", self.name
-        # print "--------"
         if len(self.neighbours) == 1:
-            message = self.f
-            other.receive_msg(self, message)
-            # print message
+            other.receive_msg(self, self.f)
         else:            
             num_of_incoming_messages = 0
             num_neighbours = len(self.neighbours)
@@ -189,26 +204,40 @@ class Factor(Node):
                 direction = filter(lambda i: not i == index, range(num_neighbours))
                 message = np.tensordot(self.f, tensor, axes=(direction, range(tensor.ndim)))
                 other.receive_msg(self, np.array([0.5, 0.5]))
-                # self.pending.remove(other)
-                # print message
-
    
     def send_ms_msg(self, other):
         # TODO: implement Factor -> Variable message for max-sum
         vectors = []
-        num_of_incoming_messages = 0
-        num_neighbours = len(self.neighbours)
-        for neighbour in self.neighbours:
-            if neighbour is not other and neighbour in self.in_msgs:
-                num_of_incoming_messages += 1
-        if num_of_incoming_messages == num_neighbours - 1:
+        if len(self.neighbours) == 1:
+            other.receive_msg(self, np.log(self.f))
+        else:            
+            num_of_incoming_messages = 0
+            num_neighbours = len(self.neighbours)
             for neighbour in self.neighbours:
-                if neighbour is not other:
-                    vectors.append(self.in_msgs[neighbour])
+                if neighbour is not other and neighbour in self.in_msgs:
+                    num_of_incoming_messages += 1
+            if num_of_incoming_messages == num_neighbours - 1:
+                for neighbour in self.neighbours:
+                    if neighbour is not other:
+                        vectors.append(self.in_msgs[neighbour])
+                tensor = np.multiply.reduce(np.ix_(*vectors))
+                index = -1
+                for i in range(num_neighbours):
+                    if self.neighbours[i] is other:
+                        index = i
+                        break
+                tensor = np.add.reduce(np.ix_(*vectors))
 
-        print vectors
-        
+                tileFactor = np.ones(num_neighbours)
+                tileFactor[0] = other.num_states
+                tiled_matrix = np.tile(tensor, tileFactor)
 
+                res_tiled_matrix = tiled_matrix.reshape(self.f.shape)
+                log_added = np.log(res_tiled_matrix) + np.log(res_tiled_matrix)
+                direction = filter(lambda i: not i == index, range(num_neighbours))
+                for dirct in direction:
+                    maximum = np.maximum.reduce(log_added, dirct)
+                other.receive_msg(self, maximum)
 
 class Factor_Graph(object):
     def __init__(self):
@@ -285,6 +314,19 @@ class Factor_Graph(object):
     # 2.1 Max-Sum
     def max_sum(self):
         self.initialize_node_list()
+        pending_messages = []
+        for node in self.ordered_node_list:
+            for i in range(len(node.pending)):
+                pending_messages.append((node, node.pending.pop()))
+        for pm in pending_messages:
+            pm[0].send_ms_msg(pm[1])
+
+        pending_reversed_messages = []
+        for node in reversed(self.ordered_node_list):
+            for i in range(len(node.pending)):
+                pending_reversed_messages.append((node, node.pending.pop()))
+        for pm in pending_reversed_messages:
+            pm[0].send_ms_msg(pm[1])
 
 
 
@@ -292,5 +334,5 @@ class Factor_Graph(object):
 
 testNetwork = Factor_Graph()
 testNetwork.instantiate_network()
-# testNetwork.sum_product()
 testNetwork.sum_product()
+# testNetwork.max_sum()
