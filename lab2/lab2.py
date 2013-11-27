@@ -1,6 +1,8 @@
 import numpy as np
 from pylab import *
 
+loopy = 0
+
 class Node(object):
     """
     Base-class for Nodes in a factor graph. Only instantiate sub-classes of Node.
@@ -37,7 +39,6 @@ class Node(object):
         raise Exception('Method send_ms_msg not implemented in base-class Node')
     
     def receive_msg(self, other, msg):
-        loopy = 1
         if loopy:   
             for neighbour in self.neighbours:
                 if neighbour is not other:
@@ -137,7 +138,6 @@ class Variable(Node):
                         message = np.multiply(message, self.in_msgs[neighbour])
                         message = np.multiply(message, self.observed_state)
                 other.receive_msg(self, message)
-                # self.pending.remove(other)
 
     def send_ms_msg(self, other):
         # http://www.cedar.buffalo.edu/~srihari/CSE574/Chap8/Ch8-GraphicalModelInference/Ch8.3.3-Max-SumAlg.pdf
@@ -154,7 +154,7 @@ class Variable(Node):
             if num_of_incoming_messages == num_neighbours - 1:
                 for neighbour in self.neighbours:
                     if neighbour is not other:
-                        vectors.append(vectors)
+                        vectors.append(self.in_msgs[neighbour])
                 message = np.add.reduce(vectors)
                 message = np.multiply(message, self.observed_state)
                 other.receive_msg(self,message)
@@ -234,9 +234,9 @@ class Factor(Node):
                         break
                 tensor = np.add.reduce(np.ix_(*vectors))
 
-                tileFactor = np.ones(num_neighbours)
-                tileFactor[0] = other.num_states
-                tiled_matrix = np.tile(tensor, tileFactor)
+                tile_factor = np.ones(num_neighbours)
+                tile_factor[0] = other.num_states
+                tiled_matrix = np.tile(tensor, tile_factor)
 
                 res_tiled_matrix = tiled_matrix.reshape(self.f.shape)
                 log_added = np.log(res_tiled_matrix) + np.log(res_tiled_matrix)
@@ -253,82 +253,43 @@ class Factor_Graph(object):
         self.node_list = []
         self.ordered_node_list = []
 
-    def instantiate_network_1(self):
-        self.variable_list = {}
-        self.factor_list = {}
-        self.node_list = []
-        self.ordered_node_list = []
-        # variables and factors in the right order in order to run sum-product algorithm
-        self.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
-        "F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "F_Bronchitis", "Bronchitis"]
-        # variables
-        self.variable_list["Influenza"] = Variable("Influenza", 2)
-        self.variable_list["Smokes"] = Variable("Smokes", 2)
-        self.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
-        self.variable_list["Fever"] = Variable("Fever", 2)
-        self.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
-        self.variable_list["Coughing"] = Variable("Coughing", 2)
-        self.variable_list["Wheezing"] = Variable("Wheezing", 2)
-        # factself.ors
-        self.factor_list["F_Influenza"] = Factor("F_Influenza", 
-            np.array([0.05, 0.95]), 
-            [self.variable_list["Influenza"]])
-        self.factor_list["F_Smokes"] = Factor("F_Smokes", 
-            np.array([0.2, 0.8]), 
-            [self.variable_list["Smokes"]])
-        self.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
-            np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
-            [self.variable_list["SoreThroat"], self.variable_list["Influenza"]])
-        self.factor_list["F_Fever"] = Factor("F_Fever", 
-            np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
-            [self.variable_list["Fever"], self.variable_list["Influenza"]])
-        self.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
-            np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
-            [self.variable_list["Bronchitis"],self.variable_list["Influenza"], self.variable_list["Smokes"]])
-        self.factor_list["F_Coughing"] = Factor("F_Coughing", 
-            np.array([[0.8, 0.07],[ 0.2, 0.93]]), [self.variable_list["Coughing"], 
-            self.variable_list["Bronchitis"]])
-        self.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
-            np.array([[0.6, 0.001],[ 0.4, 0.999]]), [self.variable_list["Wheezing"], 
-            self.variable_list["Bronchitis"]])
+    # 1.6
+    def sum_product(self):
+        pending_messages = []
+        for node in self.ordered_node_list:
+            for i in range(len(node.pending)):
+                pending_messages.append((node, node.pending.pop()))
+        for pm in pending_messages:
+            pm[0].send_sp_msg(pm[1])
+            print pm[0],"-->",pm[1]
 
-    def instantiate_network_2(self, shape):
-        self.variable_list = {}
-        self.factor_list = {}
-        self.node_list = []
-        self.ordered_node_list = []
-        img_width = 100
-        img_height = 50
-        for x in xrange(shape[0]):
-            for y in xrange(shape[1]):
-                self.variable_list[(1,x,y)] = Variable((0,x,y), 2)
-                self.variable_list[(3,x,y)] = Variable((1,x,y), 2)
-                self.factor_list[(0,x,y)] = Factor((x,y), np.array([0.2, 0.8]), [self.variable_list[(1,x,y)]])
-                self.factor_list[(2,x,y)] = Factor((x,y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(1,x,y)], self.variable_list[(3,x,y)]])
-                if x > 0:
-                    self.factor_list[(x,y, x-1, y)] = Factor((x,y, x-1, y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x-1,y)]])
-                if y > 0:
-                    self.factor_list[(x,y, x, y-1)] = Factor((x,y, x, y-1), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x,y-1)]])
+        print ""
 
-        for x in xrange(shape[0]):
-            for y in xrange(shape[1]):
-                self.node_list.append((0,x,y))
-        for x in xrange(shape[0]):
-            for y in xrange(shape[1]):
-                self.node_list.append((1,x,y))
-        for x in xrange(shape[0]):
-            for y in xrange(shape[1]):
-                self.node_list.append((2,x,y))
-        for x in xrange(shape[0]):
-            for y in xrange(shape[1]):
-                self.node_list.append((3,x,y))
-        for x in xrange(1, shape[0]):
-            for y in xrange(shape[1]):
-                self.node_list.append((x,y, x-1, y))
-        for x in xrange(shape[0]):
-            for y in xrange(1, shape[1]):
-                self.node_list.append((x,y, x, y-1))
+        pending_reversed_messages = []
+        for node in reversed(self.ordered_node_list):
+            for i in range(len(node.pending)):
+                pending_reversed_messages.append((node, node.pending.pop()))
+        for pm in pending_reversed_messages:
+            pm[0].send_sp_msg(pm[1])
+            print pm[0],"-->",pm[1]
 
+    # 2.1 Max-Sum
+    def max_sum(self):
+        pending_messages = []
+        for node in self.ordered_node_list:
+            for i in range(len(node.pending)):
+                pending_messages.append((node, node.pending.pop()))
+        for pm in pending_messages:
+            pm[0].send_ms_msg(pm[1])
+            print pm[0],"-->",pm[1]
+
+        pending_reversed_messages = []
+        for node in reversed(self.ordered_node_list):
+            for i in range(len(node.pending)):
+                pending_reversed_messages.append((node, node.pending.pop()))
+        for pm in pending_reversed_messages:
+            pm[0].send_ms_msg(pm[1])
+            print pm[0],"-->",pm[1]
 
     def initialize_node_list(self):
         for node in self.node_list:
@@ -341,76 +302,110 @@ class Factor_Graph(object):
                     self.factor_list[node].pending.add(self.factor_list[node].neighbours[0])
                 self.ordered_node_list.append(self.factor_list[node])
 
-    # 1.6
-    def sum_product(self):
-        self.initialize_node_list()
-        pending_messages = []
-        for node in self.ordered_node_list:
-            for i in range(len(node.pending)):
-                pending_messages.append((node, node.pending.pop()))
-        for pm in pending_messages:
-            pm[0].send_sp_msg(pm[1])
 
-        pending_reversed_messages = []
-        for node in reversed(self.ordered_node_list):
-            for i in range(len(node.pending)):
-                pending_reversed_messages.append((node, node.pending.pop()))
-        for pm in pending_reversed_messages:
-            pm[0].send_sp_msg(pm[1])
+nt = Factor_Graph()
+nt.variable_list = {}
+nt.factor_list = {}
+nt.node_list = []
+nt.ordered_node_list = []
+# variables and factors in the right order in order to run sum-product algorithm
+nt.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
+"F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "Influenza", "Smokes", "F_Bronchitis", "Bronchitis"]
+# variables
+nt.variable_list["Influenza"] = Variable("Influenza", 2)
+nt.variable_list["Smokes"] = Variable("Smokes", 2)
+nt.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
+nt.variable_list["Fever"] = Variable("Fever", 2)
+nt.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
+nt.variable_list["Coughing"] = Variable("Coughing", 2)
+nt.variable_list["Wheezing"] = Variable("Wheezing", 2)
+# factself.ors
+nt.factor_list["F_Influenza"] = Factor("F_Influenza", 
+    np.array([0.05, 0.95]), 
+    [nt.variable_list["Influenza"]])
+nt.factor_list["F_Smokes"] = Factor("F_Smokes", 
+    np.array([0.2, 0.8]), 
+    [nt.variable_list["Smokes"]])
+nt.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
+    np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
+    [nt.variable_list["SoreThroat"], nt.variable_list["Influenza"]])
+nt.factor_list["F_Fever"] = Factor("F_Fever", 
+    np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
+    [nt.variable_list["Fever"], nt.variable_list["Influenza"]])
+nt.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
+    np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
+    [nt.variable_list["Bronchitis"],nt.variable_list["Influenza"], nt.variable_list["Smokes"]])
+nt.factor_list["F_Coughing"] = Factor("F_Coughing", 
+    np.array([[0.8, 0.07],[ 0.2, 0.93]]), [nt.variable_list["Coughing"], 
+    nt.variable_list["Bronchitis"]])
+nt.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
+    np.array([[0.6, 0.001],[ 0.4, 0.999]]), [nt.variable_list["Wheezing"], 
+    nt.variable_list["Bronchitis"]])
+
+nt.initialize_node_list()
+nt.max_sum()
 
 
-    # 2.1 Max-Sum
-    def max_sum(self):
-        self.initialize_node_list()
-        pending_messages = []
-        for node in self.ordered_node_list:
-            for i in range(len(node.pending)):
-                pending_messages.append((node, node.pending.pop()))
-        for pm in pending_messages:
-            pm[0].send_ms_msg(pm[1])
-            print str(pm[0].name), " send_ms_msg " , str(pm[1].name)
-
-        pending_reversed_messages = []
-        for node in reversed(self.ordered_node_list):
-            for i in range(len(node.pending)):
-                pending_reversed_messages.append((node, node.pending.pop()))
-        for pm in pending_reversed_messages:
-            pm[0].send_ms_msg(pm[1])
-
-
-
-
-
-# testNetwork = Factor_Graph()
-# testNetwork.instantiate_network_1()
-# testNetwork.sum_product()
-# testNetwork.instantiate_network_1()
-# testNetwork.max_sum()
 
 # Load the image and binarize
 # im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
 # imshow(im)
 # gray()
-
 # # Add some noise
 # noise = np.random.rand(*im.shape) > 0.9
 # noise_im = np.logical_xor(noise, im)
 # figure()
 # imshow(noise_im)
 
-test_im = np.zeros((10,10))
-#test_im[5:8, 3:8] = 1.0
-#test_im[5,5] = 1.0
-figure()
-imshow(test_im)
+# test_im = np.zeros((10,10))
+# #test_im[5:8, 3:8] = 1.0
+# #test_im[5,5] = 1.0
+# figure()
+# imshow(test_im)
 
-# Add some noise
-noise = np.random.rand(*test_im.shape) > 0.9
-noise_test_im = np.logical_xor(noise, test_im)
-figure()
-imshow(noise_test_im)
+# # Add some noise
+# noise = np.random.rand(*test_im.shape) > 0.9
+# noise_test_im = np.logical_xor(noise, test_im)
+# figure()
+# imshow(noise_test_im)
 
-testNetwork2 = Factor_Graph()
-testNetwork2.instantiate_network_2(noise_test_im.shape)
-for i in range(100):
-    testNetwork2.max_sum()
+# testNetwork2 = Factor_Graph()
+# testNetwork2.instantiate_network_2(noise_test_im.shape)
+# for i in range(100):
+#     testNetwork2.max_sum()
+
+# self.variable_list = {}
+# self.factor_list = {}
+# self.node_list = []
+# self.ordered_node_list = []
+# img_width = 100
+# img_height = 50
+# for x in xrange(shape[0]):
+#     for y in xrange(shape[1]):
+#         self.variable_list[(1,x,y)] = Variable((0,x,y), 2)
+#         self.variable_list[(3,x,y)] = Variable((1,x,y), 2)
+#         self.factor_list[(0,x,y)] = Factor((x,y), np.array([0.2, 0.8]), [self.variable_list[(1,x,y)]])
+#         self.factor_list[(2,x,y)] = Factor((x,y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(1,x,y)], self.variable_list[(3,x,y)]])
+#         if x > 0:
+#             self.factor_list[(x,y, x-1, y)] = Factor((x,y, x-1, y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x-1,y)]])
+#         if y > 0:
+#             self.factor_list[(x,y, x, y-1)] = Factor((x,y, x, y-1), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x,y-1)]])
+
+# for x in xrange(shape[0]):
+#     for y in xrange(shape[1]):
+#         self.node_list.append((0,x,y))
+# for x in xrange(shape[0]):
+#     for y in xrange(shape[1]):
+#         self.node_list.append((1,x,y))
+# for x in xrange(shape[0]):
+#     for y in xrange(shape[1]):
+#         self.node_list.append((2,x,y))
+# for x in xrange(shape[0]):
+#     for y in xrange(shape[1]):
+#         self.node_list.append((3,x,y))
+# for x in xrange(1, shape[0]):
+#     for y in xrange(shape[1]):
+#         self.node_list.append((x,y, x-1, y))
+# for x in xrange(shape[0]):
+#     for y in xrange(1, shape[1]):
+#         self.node_list.append((x,y, x, y-1))
