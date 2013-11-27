@@ -1,7 +1,7 @@
 import numpy as np
 from pylab import *
 
-loopy = 0
+loopy = 1
 
 class Node(object):
     """
@@ -39,13 +39,13 @@ class Node(object):
         raise Exception('Method send_ms_msg not implemented in base-class Node')
     
     def receive_msg(self, other, msg):
-        if loopy:   
+        self.in_msgs[other] = msg
+        if loopy:  
             for neighbour in self.neighbours:
                 if neighbour is not other:
                     self.pending.add(neighbour)
         else:
             # Store the incomming message, replacing previous messages from the same node
-            self.in_msgs[other] = msg
             if len(self.in_msgs) == len(self.neighbours):
                 for neighbour in self.neighbours:
                     self.pending.add(neighbour)
@@ -210,6 +210,8 @@ class Factor(Node):
                 direction = filter(lambda i: not i == index, range(num_neighbours))
                 message = np.tensordot(self.f, tensor, axes=(direction, range(tensor.ndim)))
                 other.receive_msg(self, message)
+                if other in self.pending:
+                    self.pending.remove(other)
    
     def send_ms_msg(self, other):
         # TODO: implement Factor -> Variable message for max-sum
@@ -244,6 +246,8 @@ class Factor(Node):
                 for dirct in direction:
                     maximum = np.maximum.reduce(log_added, dirct)
                 other.receive_msg(self, maximum)
+                if other in self.pending:
+                    self.pending.remove(other)
 
 class Factor_Graph(object):
     def __init__(self):
@@ -263,8 +267,6 @@ class Factor_Graph(object):
             pm[0].send_sp_msg(pm[1])
             print pm[0],"-->",pm[1]
 
-        print ""
-
         pending_reversed_messages = []
         for node in reversed(self.ordered_node_list):
             for i in range(len(node.pending)):
@@ -275,8 +277,10 @@ class Factor_Graph(object):
 
     # 2.1 Max-Sum
     def max_sum(self):
+        loopy = 0
         pending_messages = []
         for node in self.ordered_node_list:
+            # print node, len(node.pending)
             for i in range(len(node.pending)):
                 pending_messages.append((node, node.pending.pop()))
         for pm in pending_messages:
@@ -285,11 +289,31 @@ class Factor_Graph(object):
 
         pending_reversed_messages = []
         for node in reversed(self.ordered_node_list):
+            # print node, len(node.pending)
             for i in range(len(node.pending)):
                 pending_reversed_messages.append((node, node.pending.pop()))
         for pm in pending_reversed_messages:
             pm[0].send_ms_msg(pm[1])
             print pm[0],"-->",pm[1]
+
+    # 3.2 Loopy Max-Sum
+    def loopy_max_sum(self, max_iter):
+        loopy = 1
+        for x in xrange(max_iter):
+            print "iteration: ", x , "/" , max_iter
+            pending_messages = []
+            for node in self.ordered_node_list:
+                # print node, len(node.pending)
+                for pending_node in node.pending:
+                    pending_messages.append((node, pending_node))
+            if len(pending_messages) > 0:
+                selected = pending_messages[np.random.randint(len(pending_messages))-1]
+                selected[0].send_ms_msg(selected[1])
+                print selected[0],"-->",selected[1]
+            else:
+                print "no more pending messages..."
+                break
+            
 
     def initialize_node_list(self):
         for node in self.node_list:
@@ -303,109 +327,105 @@ class Factor_Graph(object):
                 self.ordered_node_list.append(self.factor_list[node])
 
 
-nt = Factor_Graph()
-nt.variable_list = {}
-nt.factor_list = {}
-nt.node_list = []
-nt.ordered_node_list = []
-# variables and factors in the right order in order to run sum-product algorithm
-nt.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
-"F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "Influenza", "Smokes", "F_Bronchitis", "Bronchitis"]
-# variables
-nt.variable_list["Influenza"] = Variable("Influenza", 2)
-nt.variable_list["Smokes"] = Variable("Smokes", 2)
-nt.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
-nt.variable_list["Fever"] = Variable("Fever", 2)
-nt.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
-nt.variable_list["Coughing"] = Variable("Coughing", 2)
-nt.variable_list["Wheezing"] = Variable("Wheezing", 2)
-# factself.ors
-nt.factor_list["F_Influenza"] = Factor("F_Influenza", 
-    np.array([0.05, 0.95]), 
-    [nt.variable_list["Influenza"]])
-nt.factor_list["F_Smokes"] = Factor("F_Smokes", 
-    np.array([0.2, 0.8]), 
-    [nt.variable_list["Smokes"]])
-nt.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
-    np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
-    [nt.variable_list["SoreThroat"], nt.variable_list["Influenza"]])
-nt.factor_list["F_Fever"] = Factor("F_Fever", 
-    np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
-    [nt.variable_list["Fever"], nt.variable_list["Influenza"]])
-nt.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
-    np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
-    [nt.variable_list["Bronchitis"],nt.variable_list["Influenza"], nt.variable_list["Smokes"]])
-nt.factor_list["F_Coughing"] = Factor("F_Coughing", 
-    np.array([[0.8, 0.07],[ 0.2, 0.93]]), [nt.variable_list["Coughing"], 
-    nt.variable_list["Bronchitis"]])
-nt.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
-    np.array([[0.6, 0.001],[ 0.4, 0.999]]), [nt.variable_list["Wheezing"], 
-    nt.variable_list["Bronchitis"]])
+# nt = Factor_Graph()
+# nt.variable_list = {}
+# nt.factor_list = {}
+# nt.node_list = []
+# nt.ordered_node_list = []
+# # variables and factors in the right order in order to run sum-product algorithm
+# nt.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
+# "F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "Influenza", "Smokes", "F_Bronchitis", "Bronchitis"]
+# # variables
+# nt.variable_list["Influenza"] = Variable("Influenza", 2)
+# nt.variable_list["Smokes"] = Variable("Smokes", 2)
+# nt.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
+# nt.variable_list["Fever"] = Variable("Fever", 2)
+# nt.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
+# nt.variable_list["Coughing"] = Variable("Coughing", 2)
+# nt.variable_list["Wheezing"] = Variable("Wheezing", 2)
+# # factself.ors
+# nt.factor_list["F_Influenza"] = Factor("F_Influenza", 
+#     np.array([0.05, 0.95]), 
+#     [nt.variable_list["Influenza"]])
+# nt.factor_list["F_Smokes"] = Factor("F_Smokes", 
+#     np.array([0.2, 0.8]), 
+#     [nt.variable_list["Smokes"]])
+# nt.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
+#     np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
+#     [nt.variable_list["SoreThroat"], nt.variable_list["Influenza"]])
+# nt.factor_list["F_Fever"] = Factor("F_Fever", 
+#     np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
+#     [nt.variable_list["Fever"], nt.variable_list["Influenza"]])
+# nt.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
+#     np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
+#     [nt.variable_list["Bronchitis"],nt.variable_list["Influenza"], nt.variable_list["Smokes"]])
+# nt.factor_list["F_Coughing"] = Factor("F_Coughing", 
+#     np.array([[0.8, 0.07],[ 0.2, 0.93]]), [nt.variable_list["Coughing"], 
+#     nt.variable_list["Bronchitis"]])
+# nt.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
+#     np.array([[0.6, 0.001],[ 0.4, 0.999]]), [nt.variable_list["Wheezing"], 
+#     nt.variable_list["Bronchitis"]])
 
-nt.initialize_node_list()
-nt.max_sum()
+# nt.initialize_node_list()
+# nt.max_sum()
+# nt.sum_product()
 
 
 
 # Load the image and binarize
-# im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
-# imshow(im)
-# gray()
-# # Add some noise
-# noise = np.random.rand(*im.shape) > 0.9
-# noise_im = np.logical_xor(noise, im)
-# figure()
-# imshow(noise_im)
+im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
+imshow(im)
+gray()
+# Add some noise
+noise = np.random.rand(*im.shape) > 0.9
+noise_im = np.logical_xor(noise, im)
+figure()
+imshow(noise_im)
 
-# test_im = np.zeros((10,10))
-# #test_im[5:8, 3:8] = 1.0
-# #test_im[5,5] = 1.0
-# figure()
-# imshow(test_im)
 
-# # Add some noise
-# noise = np.random.rand(*test_im.shape) > 0.9
-# noise_test_im = np.logical_xor(noise, test_im)
-# figure()
-# imshow(noise_test_im)
+nt2 = Factor_Graph()
+nt2.variable_list = {}
+nt2.factor_list = {}
+nt2.node_list = []
+nt2.ordered_node_list = []
+noise_test_im = noise_im
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.variable_list[(1,x,y)] = Variable(str((1,x,y)), 2)
+        if noise_test_im[x,y]:
+            nt2.variable_list[(1,x,y)].set_observed(1)
+        else:
+            nt2.variable_list[(1,x,y)].set_observed(1)
+        nt2.variable_list[(3,x,y)] = Variable(str((3,x,y)), 2)
+        nt2.factor_list[(0,x,y)] = Factor(str((0,x,y)), 
+            np.array([0.5, 0.5]), 
+            [nt2.variable_list[(1,x,y)]])
+        nt2.factor_list[(2,x,y)] = Factor(str((2,x,y)), 
+            np.array([[0.9, 0.1],[ 0.1, 0.9]]), 
+            [nt2.variable_list[(1,x,y)], nt2.variable_list[(3,x,y)]])
+        if x > 0:
+            nt2.factor_list[(x,y, x-1, y)] = Factor(str((x,y, x-1, y)), np.array([[0.9, 0.1],[ 0.1, 0.9]]), [nt2.variable_list[(3,x,y)], nt2.variable_list[(3,x-1,y)]])
+        if y > 0:
+            nt2.factor_list[(x,y, x, y-1)] = Factor(str((x,y, x, y-1)), np.array([[0.9, 0.1],[ 0.1, 0.9]]), [nt2.variable_list[(3,x,y)], nt2.variable_list[(3,x,y-1)]])
 
-# testNetwork2 = Factor_Graph()
-# testNetwork2.instantiate_network_2(noise_test_im.shape)
-# for i in range(100):
-#     testNetwork2.max_sum()
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.node_list.append((0,x,y))
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.node_list.append((1,x,y))
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.node_list.append((2,x,y))
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.node_list.append((3,x,y))
+for x in xrange(1, noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.node_list.append((x,y, x-1, y))
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(1, noise_test_im.shape[1]):
+        nt2.node_list.append((x,y, x, y-1))
 
-# self.variable_list = {}
-# self.factor_list = {}
-# self.node_list = []
-# self.ordered_node_list = []
-# img_width = 100
-# img_height = 50
-# for x in xrange(shape[0]):
-#     for y in xrange(shape[1]):
-#         self.variable_list[(1,x,y)] = Variable((0,x,y), 2)
-#         self.variable_list[(3,x,y)] = Variable((1,x,y), 2)
-#         self.factor_list[(0,x,y)] = Factor((x,y), np.array([0.2, 0.8]), [self.variable_list[(1,x,y)]])
-#         self.factor_list[(2,x,y)] = Factor((x,y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(1,x,y)], self.variable_list[(3,x,y)]])
-#         if x > 0:
-#             self.factor_list[(x,y, x-1, y)] = Factor((x,y, x-1, y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x-1,y)]])
-#         if y > 0:
-#             self.factor_list[(x,y, x, y-1)] = Factor((x,y, x, y-1), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x,y-1)]])
-
-# for x in xrange(shape[0]):
-#     for y in xrange(shape[1]):
-#         self.node_list.append((0,x,y))
-# for x in xrange(shape[0]):
-#     for y in xrange(shape[1]):
-#         self.node_list.append((1,x,y))
-# for x in xrange(shape[0]):
-#     for y in xrange(shape[1]):
-#         self.node_list.append((2,x,y))
-# for x in xrange(shape[0]):
-#     for y in xrange(shape[1]):
-#         self.node_list.append((3,x,y))
-# for x in xrange(1, shape[0]):
-#     for y in xrange(shape[1]):
-#         self.node_list.append((x,y, x-1, y))
-# for x in xrange(shape[0]):
-#     for y in xrange(1, shape[1]):
-#         self.node_list.append((x,y, x, y-1))
+nt2.initialize_node_list()
+nt2.loopy_max_sum(1000000)
