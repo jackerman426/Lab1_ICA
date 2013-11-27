@@ -247,7 +247,11 @@ class Factor_Graph(object):
         self.node_list = []
         self.ordered_node_list = []
 
-    def instantiate_network(self):
+    def instantiate_network_1(self):
+        self.variable_list = {}
+        self.factor_list = {}
+        self.node_list = []
+        self.ordered_node_list = []
         # variables and factors in the right order in order to run sum-product algorithm
         self.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
         "F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "F_Bronchitis", "Bronchitis"]
@@ -333,6 +337,7 @@ class Factor_Graph(object):
 
 
 testNetwork = Factor_Graph()
-testNetwork.instantiate_network()
+testNetwork.instantiate_network_1()
 testNetwork.sum_product()
-# testNetwork.max_sum()
+testNetwork.instantiate_network_1()
+testNetwork.max_sum()
