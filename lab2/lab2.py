@@ -301,11 +301,15 @@ class Factor_Graph(object):
     def loopy_max_sum(self, max_iter):
         loopy = 1
         for x in xrange(max_iter):
-            
-            selected = self.node_list[np.random.randint(len(self.node_list))]
-            for neighbour in selected.neighbours:
-                selected.send_ms_msg(neighbour)
-                print selected,"-->",neighbour
+            print "iterartion:", x , "/" , max_iter
+            if len(self.node_list) > 0:
+                selected = self.node_list.pop(np.random.randint(len(self.node_list)))
+                for neighbour in selected.neighbours:
+                    selected.send_ms_msg(neighbour)
+                    # print selected,"-->",neighbour
+            else:
+                print "no more pending nodes"
+                break
             
 
     def initialize_node_list(self):
@@ -366,14 +370,14 @@ class Factor_Graph(object):
 
 
 # Load the image and binarize
-im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
-imshow(im)
-gray()
-# Add some noise
-noise = np.random.rand(*im.shape) > 0.9
-noise_im = np.logical_xor(noise, im)
-figure()
-imshow(noise_im)
+# im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
+# imshow(im)
+# gray()
+# # Add some noise
+# noise = np.random.rand(*im.shape) > 0.9
+# noise_im = np.logical_xor(noise, im)
+# figure()
+# imshow(noise_im)
 
 
 nt2 = Factor_Graph()
@@ -381,7 +385,15 @@ nt2.variable_list = {}
 nt2.factor_list = {}
 nt2.node_list = []
 nt2.ordered_node_list = []
-noise_test_im = noise_im
+test_im = np.zeros((10,10))
+#test_im[5:8, 3:8] = 1.0
+#test_im[5,5] = 1.0
+figure()
+imshow(test_im)
+
+# Add some noise
+noise = np.random.rand(*test_im.shape) > 0.9
+noise_test_im = np.logical_xor(noise, test_im)
 for x in xrange(noise_test_im.shape[0]):
     for y in xrange(noise_test_im.shape[1]):
         nt2.variable_list[(1,x,y)] = Variable(str((1,x,y)), 2)
@@ -400,30 +412,24 @@ for x in xrange(noise_test_im.shape[0]):
             nt2.factor_list[(x,y, x-1, y)] = Factor(str((x,y, x-1, y)), np.array([[0.9, 0.1],[ 0.1, 0.9]]), [nt2.variable_list[(3,x,y)], nt2.variable_list[(3,x-1,y)]])
         if y > 0:
             nt2.factor_list[(x,y, x, y-1)] = Factor(str((x,y, x, y-1)), np.array([[0.9, 0.1],[ 0.1, 0.9]]), [nt2.variable_list[(3,x,y)], nt2.variable_list[(3,x,y-1)]])
-
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
-        nt2.node_list.append((0,x,y))
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
-        nt2.node_list.append((1,x,y))
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
-        nt2.node_list.append((2,x,y))
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
-        nt2.node_list.append((3,x,y))
-for x in xrange(1, noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
-        nt2.node_list.append((x,y, x-1, y))
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(1, noise_test_im.shape[1]):
-        nt2.node_list.append((x,y, x, y-1))
+            
+            nt2.node_list.append(nt2.factor_list[(x,y, x, y-1)])
+            nt2.node_list.append(nt2.factor_list[(x,y, x, y-1)])
+            nt2.node_list.append(nt2.factor_list[(2,x,y)])
+            nt2.node_list.append(nt2.factor_list[(0,x,y)])
+            nt2.node_list.append(nt2.variable_list[(1,x,y)])
+            nt2.node_list.append(nt2.variable_list[(3,x,y)])
 
 
+print len(nt2.node_list)
 for node in nt2.node_list:
     for neighbour in node.neighbours:
         node.pending.add(neighbour)
         node.in_msgs[neighbour] = np.zeros(2)
 
 nt2.loopy_max_sum(1000000)
+
+new_img = np.zeros(noise_test_im.shape)
+for x in xrange(noise_test_im.shape[0]):
+    for y in xrange(noise_test_im.shape[1]):
+        nt2.variable_list[(3,x,y)].f
