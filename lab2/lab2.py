@@ -1,4 +1,5 @@
 import numpy as np
+from pylab import *
 
 class Node(object):
     """
@@ -37,17 +38,22 @@ class Node(object):
     
     def receive_msg(self, other, msg):
         print self, other, msg
-        # Store the incomming message, replacing previous messages from the same node
-        self.in_msgs[other] = msg
-        print "m ", len(self.in_msgs),"n ", len(self.neighbours)
-        if len(self.in_msgs) == len(self.neighbours):
+        loopy = 1
+        if loopy:   
             for neighbour in self.neighbours:
-                self.pending.add(neighbour)
-        if len(self.in_msgs) == len(self.neighbours) - 1:
-            for neighbour in self.neighbours:
-                if neighbour not in self.in_msgs:
+                if neighbour is not other:
                     self.pending.add(neighbour)
-                    break
+        else:
+            # Store the incomming message, replacing previous messages from the same node
+            self.in_msgs[other] = msg
+            if len(self.in_msgs) == len(self.neighbours):
+                for neighbour in self.neighbours:
+                    self.pending.add(neighbour)
+            if len(self.in_msgs) == len(self.neighbours) - 1:
+                for neighbour in self.neighbours:
+                    if neighbour not in self.in_msgs:
+                        self.pending.add(neighbour)
+                        break
             
     
     def __str__(self):
@@ -286,6 +292,24 @@ class Factor_Graph(object):
             np.array([[0.6, 0.001],[ 0.4, 0.999]]), [self.variable_list["Wheezing"], 
             self.variable_list["Bronchitis"]])
 
+    def instantiate_network_2(self, shape):
+        self.variable_list = {}
+        self.factor_list = {}
+        self.node_list = []
+        self.ordered_node_list = []
+        img_width = 100
+        img_height = 50
+        for x in xrange(shape[0]):
+            for y in xrange(shape[1]):
+                self.variable_list[(0,x,y)] = Variable((0,x,y), 2)
+                self.variable_list[(1,x,y)] = Variable((1,x,y), 2)
+                self.factor_list[(0,x,y)] = Factor((x,y), np.array([0.2, 0.8]), [self.variable_list[(1,x,y)]])
+                self.factor_list[(1,x,y)] = Factor((x,y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(0,x,y)], self.variable_list[(1,x,y)]])
+                if x > 0:
+                    self.factor_list[(x,y, x-1, y)] = Factor((x,y, x-1, y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(0,x,y)], self.variable_list[(0,x-1,y)]])
+                if y > 0:
+                    self.factor_list[(x,y, x-1, y)] = Factor((x,y, x, y-1), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(0,x,y)], self.variable_list[(0,x,y-1)]])
+
     def initialize_node_list(self):
         for node in self.node_list:
             if node in self.variable_list:
@@ -336,8 +360,37 @@ class Factor_Graph(object):
 
 
 
-testNetwork = Factor_Graph()
-testNetwork.instantiate_network_1()
-testNetwork.sum_product()
-testNetwork.instantiate_network_1()
-testNetwork.max_sum()
+# testNetwork = Factor_Graph()
+# testNetwork.instantiate_network_1()
+# testNetwork.sum_product()
+# testNetwork.instantiate_network_1()
+# testNetwork.max_sum()
+
+# Load the image and binarize
+im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
+imshow(im)
+gray()
+
+# Add some noise
+noise = np.random.rand(*im.shape) > 0.9
+noise_im = np.logical_xor(noise, im)
+figure()
+imshow(noise_im)
+
+test_im = np.zeros((10,10))
+#test_im[5:8, 3:8] = 1.0
+#test_im[5,5] = 1.0
+figure()
+imshow(test_im)
+
+# Add some noise
+noise = np.random.rand(*test_im.shape) > 0.9
+noise_test_im = np.logical_xor(noise, test_im)
+figure()
+imshow(noise_test_im)
+
+testNetwork2 = Factor_Graph()
+testNetwork2.instantiate_network_2(noise_test_im.shape)
+testNetwork2.sum_product()
+# for item, value in testNetwork2.factor_list.iteritems():
+#     print value.f
