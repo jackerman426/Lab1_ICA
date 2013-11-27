@@ -37,7 +37,6 @@ class Node(object):
         raise Exception('Method send_ms_msg not implemented in base-class Node')
     
     def receive_msg(self, other, msg):
-        print self, other, msg
         loopy = 1
         if loopy:   
             for neighbour in self.neighbours:
@@ -54,6 +53,7 @@ class Node(object):
                     if neighbour not in self.in_msgs:
                         self.pending.add(neighbour)
                         break
+        # print self.name
             
     
     def __str__(self):
@@ -209,7 +209,7 @@ class Factor(Node):
                         break
                 direction = filter(lambda i: not i == index, range(num_neighbours))
                 message = np.tensordot(self.f, tensor, axes=(direction, range(tensor.ndim)))
-                other.receive_msg(self, np.array([0.5, 0.5]))
+                other.receive_msg(self, message)
    
     def send_ms_msg(self, other):
         # TODO: implement Factor -> Variable message for max-sum
@@ -301,14 +301,34 @@ class Factor_Graph(object):
         img_height = 50
         for x in xrange(shape[0]):
             for y in xrange(shape[1]):
-                self.variable_list[(0,x,y)] = Variable((0,x,y), 2)
-                self.variable_list[(1,x,y)] = Variable((1,x,y), 2)
+                self.variable_list[(1,x,y)] = Variable((0,x,y), 2)
+                self.variable_list[(3,x,y)] = Variable((1,x,y), 2)
                 self.factor_list[(0,x,y)] = Factor((x,y), np.array([0.2, 0.8]), [self.variable_list[(1,x,y)]])
-                self.factor_list[(1,x,y)] = Factor((x,y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(0,x,y)], self.variable_list[(1,x,y)]])
+                self.factor_list[(2,x,y)] = Factor((x,y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(1,x,y)], self.variable_list[(3,x,y)]])
                 if x > 0:
-                    self.factor_list[(x,y, x-1, y)] = Factor((x,y, x-1, y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(0,x,y)], self.variable_list[(0,x-1,y)]])
+                    self.factor_list[(x,y, x-1, y)] = Factor((x,y, x-1, y), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x-1,y)]])
                 if y > 0:
-                    self.factor_list[(x,y, x-1, y)] = Factor((x,y, x, y-1), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(0,x,y)], self.variable_list[(0,x,y-1)]])
+                    self.factor_list[(x,y, x, y-1)] = Factor((x,y, x, y-1), np.array([[0.5, 0.5],[ 0.5, 0.5]]), [self.variable_list[(3,x,y)], self.variable_list[(3,x,y-1)]])
+
+        for x in xrange(shape[0]):
+            for y in xrange(shape[1]):
+                self.node_list.append((0,x,y))
+        for x in xrange(shape[0]):
+            for y in xrange(shape[1]):
+                self.node_list.append((1,x,y))
+        for x in xrange(shape[0]):
+            for y in xrange(shape[1]):
+                self.node_list.append((2,x,y))
+        for x in xrange(shape[0]):
+            for y in xrange(shape[1]):
+                self.node_list.append((3,x,y))
+        for x in xrange(1, shape[0]):
+            for y in xrange(shape[1]):
+                self.node_list.append((x,y, x-1, y))
+        for x in xrange(shape[0]):
+            for y in xrange(1, shape[1]):
+                self.node_list.append((x,y, x, y-1))
+
 
     def initialize_node_list(self):
         for node in self.node_list:
@@ -348,6 +368,7 @@ class Factor_Graph(object):
                 pending_messages.append((node, node.pending.pop()))
         for pm in pending_messages:
             pm[0].send_ms_msg(pm[1])
+            print str(pm[0].name), " send_ms_msg " , str(pm[1].name)
 
         pending_reversed_messages = []
         for node in reversed(self.ordered_node_list):
@@ -367,15 +388,15 @@ class Factor_Graph(object):
 # testNetwork.max_sum()
 
 # Load the image and binarize
-im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
-imshow(im)
-gray()
+# im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
+# imshow(im)
+# gray()
 
-# Add some noise
-noise = np.random.rand(*im.shape) > 0.9
-noise_im = np.logical_xor(noise, im)
-figure()
-imshow(noise_im)
+# # Add some noise
+# noise = np.random.rand(*im.shape) > 0.9
+# noise_im = np.logical_xor(noise, im)
+# figure()
+# imshow(noise_im)
 
 test_im = np.zeros((10,10))
 #test_im[5:8, 3:8] = 1.0
@@ -391,6 +412,5 @@ imshow(noise_test_im)
 
 testNetwork2 = Factor_Graph()
 testNetwork2.instantiate_network_2(noise_test_im.shape)
-testNetwork2.sum_product()
-# for item, value in testNetwork2.factor_list.iteritems():
-#     print value.f
+for i in range(100):
+    testNetwork2.max_sum()
