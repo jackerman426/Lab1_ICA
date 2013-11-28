@@ -256,6 +256,7 @@ class Factor_Graph(object):
         self.factor_list = {}
         self.node_list = []
         self.ordered_node_list = []
+        self.loopy_pending_messages = []
 
     # 1.6
     def sum_product(self):
@@ -300,19 +301,11 @@ class Factor_Graph(object):
     def loopy_max_sum(self, max_iter):
         loopy = 1
         for x in xrange(max_iter):
-            print "iteration: ", x , "/" , max_iter
-            pending_messages = []
-            for node in self.ordered_node_list:
-                # print node, len(node.pending)
-                for pending_node in node.pending:
-                    pending_messages.append((node, pending_node))
-            if len(pending_messages) > 0:
-                selected = pending_messages[np.random.randint(len(pending_messages))-1]
-                selected[0].send_ms_msg(selected[1])
-                print selected[0],"-->",selected[1]
-            else:
-                print "no more pending messages..."
-                break
+            
+            selected = self.node_list[np.random.randint(len(self.node_list))]
+            for neighbour in selected.neighbours:
+                selected.send_ms_msg(neighbour)
+                print selected,"-->",neighbour
             
 
     def initialize_node_list(self):
@@ -427,5 +420,10 @@ for x in xrange(noise_test_im.shape[0]):
     for y in xrange(1, noise_test_im.shape[1]):
         nt2.node_list.append((x,y, x, y-1))
 
-nt2.initialize_node_list()
+
+for node in nt2.node_list:
+    for neighbour in node.neighbours:
+        node.pending.add(neighbour)
+        node.in_msgs[neighbour] = np.zeros(2)
+
 nt2.loopy_max_sum(1000000)
