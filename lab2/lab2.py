@@ -159,8 +159,13 @@ class Variable(Node):
                 message = np.multiply(message, self.observed_state)
                 other.receive_msg(self,message)
 
-
-                    
+    def map_state(self):
+        if self.observed_state.all() == 1.0:
+            return np.argmax(self.observed_state)
+        sum_ = np.zeros(2)
+        for neighbour in self.neighbours:
+            sum_ = np.add(sum_, self.in_msgs[neighbour])
+        return np.argmax(sum_)
 
 class Factor(Node):
     def __init__(self, name, f, neighbours):
@@ -324,44 +329,44 @@ class Factor_Graph(object):
                 self.ordered_node_list.append(self.factor_list[node])
 
 
-# nt = Factor_Graph()
-# nt.variable_list = {}
-# nt.factor_list = {}
-# nt.node_list = []
-# nt.ordered_node_list = []
-# # variables and factors in the right order in order to run sum-product algorithm
-# nt.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
-# "F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "Influenza", "Smokes", "F_Bronchitis", "Bronchitis"]
-# # variables
-# nt.variable_list["Influenza"] = Variable("Influenza", 2)
-# nt.variable_list["Smokes"] = Variable("Smokes", 2)
-# nt.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
-# nt.variable_list["Fever"] = Variable("Fever", 2)
-# nt.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
-# nt.variable_list["Coughing"] = Variable("Coughing", 2)
-# nt.variable_list["Wheezing"] = Variable("Wheezing", 2)
-# # factself.ors
-# nt.factor_list["F_Influenza"] = Factor("F_Influenza", 
-#     np.array([0.05, 0.95]), 
-#     [nt.variable_list["Influenza"]])
-# nt.factor_list["F_Smokes"] = Factor("F_Smokes", 
-#     np.array([0.2, 0.8]), 
-#     [nt.variable_list["Smokes"]])
-# nt.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
-#     np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
-#     [nt.variable_list["SoreThroat"], nt.variable_list["Influenza"]])
-# nt.factor_list["F_Fever"] = Factor("F_Fever", 
-#     np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
-#     [nt.variable_list["Fever"], nt.variable_list["Influenza"]])
-# nt.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
-#     np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
-#     [nt.variable_list["Bronchitis"],nt.variable_list["Influenza"], nt.variable_list["Smokes"]])
-# nt.factor_list["F_Coughing"] = Factor("F_Coughing", 
-#     np.array([[0.8, 0.07],[ 0.2, 0.93]]), [nt.variable_list["Coughing"], 
-#     nt.variable_list["Bronchitis"]])
-# nt.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
-#     np.array([[0.6, 0.001],[ 0.4, 0.999]]), [nt.variable_list["Wheezing"], 
-#     nt.variable_list["Bronchitis"]])
+nt = Factor_Graph()
+nt.variable_list = {}
+nt.factor_list = {}
+nt.node_list = []
+nt.ordered_node_list = []
+# variables and factors in the right order in order to run sum-product algorithm
+nt.node_list = ["F_Influenza", "F_Smokes", "SoreThroat", "Fever", "Coughing", "Wheezing", 
+"F_SoreThroat", "F_Fever", "F_Coughing", "F_Wheezing", "Influenza", "Smokes", "F_Bronchitis", "Bronchitis"]
+# variables
+nt.variable_list["Influenza"] = Variable("Influenza", 2)
+nt.variable_list["Smokes"] = Variable("Smokes", 2)
+nt.variable_list["SoreThroat"] = Variable("SoreThroat", 2)
+nt.variable_list["Fever"] = Variable("Fever", 2)
+nt.variable_list["Bronchitis"] = Variable("Bronchitis", 2)
+nt.variable_list["Coughing"] = Variable("Coughing", 2)
+nt.variable_list["Wheezing"] = Variable("Wheezing", 2)
+# factself.ors
+nt.factor_list["F_Influenza"] = Factor("F_Influenza", 
+    np.array([0.05, 0.95]), 
+    [nt.variable_list["Influenza"]])
+nt.factor_list["F_Smokes"] = Factor("F_Smokes", 
+    np.array([0.2, 0.8]), 
+    [nt.variable_list["Smokes"]])
+nt.factor_list["F_SoreThroat"] = Factor("F_SoreThroat", 
+    np.array([[0.3, 0.001],[ 0.7, 0.999]]), 
+    [nt.variable_list["SoreThroat"], nt.variable_list["Influenza"]])
+nt.factor_list["F_Fever"] = Factor("F_Fever", 
+    np.array([[0.9, 0.05],[ 0.1, 0.95]]), 
+    [nt.variable_list["Fever"], nt.variable_list["Influenza"]])
+nt.factor_list["F_Bronchitis"] = Factor("F_Bronchitis", 
+    np.array([[[0.99, 0.9],[ 0.7, 0.0001]],[[ 0.01, 0.1],[ 0.3, 0.9999]]]) , 
+    [nt.variable_list["Bronchitis"],nt.variable_list["Influenza"], nt.variable_list["Smokes"]])
+nt.factor_list["F_Coughing"] = Factor("F_Coughing", 
+    np.array([[0.8, 0.07],[ 0.2, 0.93]]), [nt.variable_list["Coughing"], 
+    nt.variable_list["Bronchitis"]])
+nt.factor_list["F_Wheezing"] = Factor("F_Wheezing", 
+    np.array([[0.6, 0.001],[ 0.4, 0.999]]), [nt.variable_list["Wheezing"], 
+    nt.variable_list["Bronchitis"]])
 
 # nt.initialize_node_list()
 # nt.max_sum()
@@ -370,44 +375,33 @@ class Factor_Graph(object):
 
 
 # Load the image and binarize
-# im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
-# imshow(im)
-# gray()
-# # Add some noise
-# noise = np.random.rand(*im.shape) > 0.9
-# noise_im = np.logical_xor(noise, im)
-# figure()
-# imshow(noise_im)
-
+im = np.mean(imread('dalmatian1.png'), axis=2) > 0.5
+imshow(im)
+gray()
+# Add some noise
+noise = np.random.rand(*im.shape) > 0.9
+noise_im = np.logical_xor(noise, im)
+figure()
+imshow(noise_im)
 
 nt2 = Factor_Graph()
 nt2.variable_list = {}
 nt2.factor_list = {}
 nt2.node_list = []
 nt2.ordered_node_list = []
-test_im = np.zeros((10,10))
-#test_im[5:8, 3:8] = 1.0
-#test_im[5,5] = 1.0
-figure()
-imshow(test_im)
-
 # Add some noise
-noise = np.random.rand(*test_im.shape) > 0.9
-noise_test_im = np.logical_xor(noise, test_im)
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
+
+for x in xrange(noise_im.shape[0]):
+    for y in xrange(noise_im.shape[1]):
         nt2.variable_list[(1,x,y)] = Variable(str((1,x,y)), 2)
-        if noise_test_im[x,y]:
+        if noise_im[x,y]:
             nt2.variable_list[(1,x,y)].set_observed(1)
         else:
-            nt2.variable_list[(1,x,y)].set_observed(1)
+            nt2.variable_list[(1,x,y)].set_observed(0)
+
         nt2.variable_list[(3,x,y)] = Variable(str((3,x,y)), 2)
-        nt2.factor_list[(0,x,y)] = Factor(str((0,x,y)), 
-            np.array([0.5, 0.5]), 
-            [nt2.variable_list[(1,x,y)]])
-        nt2.factor_list[(2,x,y)] = Factor(str((2,x,y)), 
-            np.array([[0.9, 0.1],[ 0.1, 0.9]]), 
-            [nt2.variable_list[(1,x,y)], nt2.variable_list[(3,x,y)]])
+        nt2.factor_list[(0,x,y)] = Factor(str((0,x,y)), np.array([0.5, 0.5]),[nt2.variable_list[(1,x,y)]])
+        nt2.factor_list[(2,x,y)] = Factor(str((2,x,y)),np.array([[0.9, 0.1],[ 0.1, 0.9]]),[nt2.variable_list[(1,x,y)], nt2.variable_list[(3,x,y)]])
         if x > 0:
             nt2.factor_list[(x,y, x-1, y)] = Factor(str((x,y, x-1, y)), np.array([[0.9, 0.1],[ 0.1, 0.9]]), [nt2.variable_list[(3,x,y)], nt2.variable_list[(3,x-1,y)]])
         if y > 0:
@@ -421,7 +415,7 @@ for x in xrange(noise_test_im.shape[0]):
             nt2.node_list.append(nt2.variable_list[(3,x,y)])
 
 
-print len(nt2.node_list)
+print "number of nodes: "len(nt2.node_list)
 for node in nt2.node_list:
     for neighbour in node.neighbours:
         node.pending.add(neighbour)
@@ -429,7 +423,11 @@ for node in nt2.node_list:
 
 nt2.loopy_max_sum(1000000)
 
-new_img = np.zeros(noise_test_im.shape)
-for x in xrange(noise_test_im.shape[0]):
-    for y in xrange(noise_test_im.shape[1]):
-        nt2.variable_list[(3,x,y)].f
+new_img = np.zeros(noise_im.shape)
+for x in xrange(noise_im.shape[0]):
+    for y in xrange(noise_im.shape[1]):
+        new_img[x,y] = nt2.variable_list[(3,x,y)].map_state()
+figure()
+imshow(new_img)
+
+show()
