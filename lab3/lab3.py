@@ -1,6 +1,8 @@
 import scipy.special as sp
 import numpy as np
 
+DEBUG = 1
+
 class BayesianPCA(object):
     
     def __init__(self, d, N, a_alpha=10e-3, b_alpha=10e-3, a_tau=10e-3, b_tau=10e-3, beta=10e-3):
@@ -8,6 +10,7 @@ class BayesianPCA(object):
         """
         self.d = d # number of dimensions
         self.N = N # number of data points
+        self.q = d - 1 # number of latent space dimensionality
         
         # Hyperparameters
         self.a_alpha = a_alpha
@@ -27,14 +30,18 @@ class BayesianPCA(object):
         self.bs_alpha_tilde = np.abs(np.random.randn(d, 1))
         self.a_tau_tilde = np.abs(np.random.randn(1))
         self.b_tau_tilde = np.abs(np.random.randn(1))
+        # initialize latent variable z
+        self.data = np.random.randn(d, N)
     
     def __update_z(self, X):
         """
         Q(Z) = prod_n N(z_n|m_z,sigma_z)
-            where m_z = <tau>sigma_z|<tau><W^T>(x_n-<mu>)
-                  sigma_x = (I+<tau><W^T W>)^-1
+            where m_z = <tau>*sigma_z|<tau>*<W^T>*(x_n-<mu>)
+                  sigma_x = (I+<tau>*<W^T*W>)^-1
 
-        """ 
+        """
+        if DEBUG:
+                print "============= UPDATE_Z =============="
         #Expectation of tau
         exp_tau = self.a_tau_tilde / self.b_tau_tilde
         exp_WT = self.means_w.T
@@ -43,16 +50,50 @@ class BayesianPCA(object):
 
         #update sigma_z
         self.sigma_z = (np.identity(self.d)+exp_tau*exp_WTW)**(-1)
-        print self.sigma_z.shape
-
-
-        pass
+        #update m_z
+        for i in range(self.N):
+            self.means_z[:,i] = (np.dot(exp_tau * self.sigma_z * exp_WT, (X[:,i].reshape(self.d,1) - exp_mu))).reshape(self.d)
+            # generation of new latent data
+            self.data[:,i] = np.random.multivariate_normal(self.means_z[:,i], self.sigma_z, 1)
+        if DEBUG:
+            print "self.means_z\n", self.means_z
+            print "self.data\n", self.data
     
     def __update_mu(self):
-        pass
+        """
+        Q(mu) = N(mu|m_mu,sigma_mu)
+            where m_mu = <tau>*sigma_mu*sum_n(x_n-<W><z_n>)
+                  sigma_mu = (beta+N<tau>)^-1 * I
+        """
+        if DEBUG:
+            print "============= UPDATE_MU =============="
+        exp_tau = self.a_tau_tilde / self.b_tau_tilde
+        #update sigma_mu
+        self.sigma_mu = (self.beta + self.N * exp_tau)**(-1) * np.identity(self.d)
+        #update mean_mu
+        self.mean_mu = np.diag(exp_tau * self.sigma_mu * np.sum(X - np.dot(self.means_w, self.means_z), axis = 1))
+        if DEBUG:
+            print "self.sigma_mu\n", self.sigma_mu
+            print "self.sigma_mu\n", self.mean_mu
     
     def __update_w(self, X):
-        pass
+        if DEBUG:
+            print "============= UPDATE_W =============="
+        a_diag = np.diag(np.zeros((self.d,self.d)) + self.a_alpha / self.b_alpha)
+        exp_tau = self.a_tau_tilde / self.b_tau_tilde
+        self.sigma_w = np.sum(np.dot(self.means_z, self.means_z.T), axis = 0)
+        # for k in xrange(self.d):
+        #     sum_ = 0
+        #     for n in xrange(self.N):
+        #         sum_ += self.means_z[n] * (X[k,n] - self.mean_mu[k])
+        #     print sum_
+        #     print self.sigma_w
+        #     self.means_w[k] = self.sigma_w * sum_
+        # print self.means_w
+        if DEBUG:
+            print "self.sigma_w\n", self.sigma_w
+        #     print "self.sigma_w\n", self.means_w
+
     
     def __update_alpha(self):
         pass
@@ -66,6 +107,8 @@ class BayesianPCA(object):
     
     def fit(self, X):
         self.__update_z(X)
+        # self.__update_mu()
+        self.__update_w(X)
 
 X = np.random.randn(4,2)
 vPca = BayesianPCA(4,2)
