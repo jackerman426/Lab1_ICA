@@ -31,28 +31,30 @@ class BayesianPCA(object):
         self.b_tau_tilde = np.abs(np.random.randn(1))
         # initialize latent variable z
         self.data = np.random.randn(d, N)
+        # expectation of tau
+        self.exp_tau = self.a_tau_tilde / self.b_tau_tilde
 
     def __checkSizes(self):
         if(self.means_z.shape != (self.d, self.N)):
-            print "ERRORself.means_z.shape"
+            print "ERROR self.means_z.shape"
             sys.exit()
         if(self.sigma_z.shape != (self.d, self.d)):
-            print "ERRORself.sigma_z"
+            print "ERROR self.sigma_z"
             sys.exit()
         if(self.mean_mu.shape != (self.d, 1)):
-            print "ERRORself.mean_mu"
+            print "ERROR self.mean_mu"
             sys.exit()
         if(self.sigma_mu.shape != (self.d, self.d)):
-            print "ERRORelf.sigma_mu"
+            print "ERROR elf.sigma_mu"
             sys.exit()
         if(self.means_w.shape != (self.d, self.d)):
-            print "ERRORself.means_w"
+            print "ERROR self.means_w"
             sys.exit()
         if(self.sigma_w.shape != (self.d, self.d)):
-            print "ERRORself.sigma_w"
+            print "ERROR self.sigma_w"
             sys.exit()
         if(self.bs_alpha_tilde.shape != (self.d, 1)):
-            print "ERROR_bs_alpha_tilde"
+            print "ERROR self.bs_alpha_tilde"
             sys.exit()
     
     def __update_z(self, X):
@@ -61,18 +63,11 @@ class BayesianPCA(object):
             where m_z = <tau>*sigma_z|<tau>*<W^T>*(x_n-<mu>)
                   sigma_x = (I+<tau>*<W^T*W>)^-1
 
-        """
-        #Expectation of tau
-        exp_tau = self.a_tau_tilde / self.b_tau_tilde
-        exp_WT = self.means_w.T
-        exp_mu = self.mean_mu
-        exp_WTW = np.trace(self.sigma_w) + np.dot(self.means_w.T, self.means_w)
-        
+        """    
         #update sigma_z
-        self.sigma_z = np.linalg.inv(np.identity(self.d) + np.multiply(exp_tau, exp_WTW))
-        # TODO make mean_z
-        self.means_z = exp_tau*np.dot(np.dot(self.sigma_z, self.means_w.T) , (X - self.mean_mu))
-        
+        self.sigma_z = np.linalg.inv(np.identity(self.d) + np.multiply(self.exp_tau, np.trace(self.sigma_w) + np.dot(self.means_w.T, self.means_w)))
+        # update mean_z
+        self.means_z = self.exp_tau*np.dot(np.dot(self.sigma_z, self.means_w.T) , (X - self.mean_mu))
         if DEBUG:
             print "============= UPDATE_Z =============="
             print "self.means_z\n", self.means_z
@@ -84,11 +79,10 @@ class BayesianPCA(object):
             where m_mu = <tau>*sigma_mu*sum_n(x_n-<W><z_n>)
                   sigma_mu = (beta+N<tau>)^-1 * I
         """
-        exp_tau = self.a_tau_tilde / self.b_tau_tilde
         #update sigma_mu
-        self.sigma_mu = (self.beta + self.N * exp_tau)**(-1) * np.identity(self.d)
+        self.sigma_mu = (self.beta + self.N * self.exp_tau)**(-1) * np.identity(self.d)
         #update mean_mu
-        self.mean_mu = exp_tau * np.dot(self.sigma_mu,np.sum(X - np.dot(self.means_w, self.means_z), axis=1)).reshape((self.d,1))
+        self.mean_mu = self.exp_tau * np.dot(self.sigma_mu,np.sum(X - np.dot(self.means_w, self.means_z), axis=1)).reshape((self.d,1))
 
         if DEBUG:
             print "============= UPDATE_MU =============="
@@ -96,16 +90,15 @@ class BayesianPCA(object):
             print "self.sigma_mu\n", self.mean_mu
     
     def __update_w(self, X):
-        exp_tau = self.a_tau_tilde / self.b_tau_tilde
+        # sigma of w
         a_diag = np.diagflat(self.a_alpha_tilde/self.bs_alpha_tilde)
         sum_ = np.zeros((self.d, self.d))
         for n in xrange(self.N):
             sum_ += self.sigma_z + np.dot(self.means_z[:,n].reshape((self.d,1)), self.means_z[:,n].T.reshape((1,self.d)))
-        self.sigma_w = np.linalg.inv(a_diag + exp_tau * sum_)
-
-        # TODO fix this
-        self_means_w = np.dot((self.a_tau_tilde/self.b_tau_tilde)*self.sigma_w, np.dot(self.means_z, (X - self.mean_mu).T)).T
-        
+        self.sigma_w = np.linalg.inv(a_diag + self.exp_tau * sum_)
+        # means of w
+        self_means_w = np.dot(self.exp_tau*self.sigma_w, np.dot(self.means_z, (X - self.mean_mu).T)).T
+        # debug prints
         if DEBUG:
             print "============= UPDATE_W =============="
             print "self.sigma_w\n", self.sigma_w
@@ -118,23 +111,25 @@ class BayesianPCA(object):
         # bs_alpha_tilde
         for i in xrange(self.d):
             self.bs_alpha_tilde[i] = self.b_alpha + np.dot(self.means_w[i], self.means_w.T[i])/2
-
+        # debug prints
         if DEBUG:
             print "============= UPDATE_alpha =============="
             print "self.a_alpha_tilde\n", self.a_alpha_tilde
             print "self.bs_alpha_tilde\n", self.bs_alpha_tilde
 
     def __update_tau(self, X):
+        # update a_tau_tilde
         self.a_tau_tilde = self.a_tau + (self.N * self.d) / 2
         sum_ = 0
+        # update b_tau_tilde
         for n in xrange(self.N):
             sum_ += np.dot(X.T[n] , X.T[n]) + np.dot(self.means_z.T[n], self.means_z.T[n])
             + np.trace((self.means_w.T*self.means_w) * (self.sigma_z + np.dot(self.means_z, self.means_z.T)))
             + 2 * np.dot(np.dot(self.mean_mu.T, self.means_w), self.means_z.T[n])
             -2 * np.dot(X.T[n], self.mean_mu)
             -2 * np.dot(np.dot(X.T[n], self.means_w), self.means_z[:,n])
-
         self.b_tau_tilde = self.b_tau + sum_ / 2
+        # debug prints
         if DEBUG:
             print "============= UPDATE_tau =============="
             print "self.bs_alpha_tilde\n", self.a_tau_tilde
@@ -168,9 +163,3 @@ X = np.random.randn(4,2)
 vPca = BayesianPCA(4,2)
 vPca.fit(X)
 vPca.CheckFittedModel(X)
-
-z = np.random.randn(2, 4)
-a = np.array([1, 2, 3]).reshape((3,1))
-b = np.array([1, 2, 3]).reshape((3,1))
-print np.multiply(a,b.T)
-print 
