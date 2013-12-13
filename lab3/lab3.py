@@ -96,21 +96,14 @@ class BayesianPCA(object):
             print "self.sigma_mu\n", self.mean_mu
     
     def __update_w(self, X):
+        exp_tau = self.a_tau_tilde / self.b_tau_tilde
+        a_diag = np.diagflat(self.a_alpha_tilde/self.bs_alpha_tilde)
+        sum_ = np.zeros((self.d, self.d))
+        for n in xrange(self.N):
+            sum_ += self.sigma_z + np.dot(self.means_z[:,n].reshape((self.d,1)), self.means_z[:,n].T.reshape((1,self.d)))
+        self.sigma_w = np.linalg.inv(a_diag + exp_tau * sum_)
 
         # TODO fix this
-
-        # # sigma of w
-        # exp_tau = self.a_tau_tilde / self.b_tau_tilde
-        # a_diag = np.identity(self.d) * (self.a_alpha_tilde / self.b_tau_tilde)
-        # self.sigma_w =  np.linalg.inv(a_diag + exp_tau * np.sum(self.sigma_z +  np.dot(self.means_z, self.means_z.T), axis=1))
-        # # means of w
-        # sum_ = np.zeros(self.d)
-        # for n in xrange(self.N):
-        #     sum_ += self.means_z[:,n] * (X[:,n] - self.mean_mu)
-        # self.means_w = exp_tau * self.sigma_w * sum_
-
-        # stathis
-        self.sigma_w = np.linalg.inv(np.diagflat(self.a_alpha_tilde/self.bs_alpha_tilde) + (self.a_tau_tilde/self.b_tau_tilde)*(self.N*self.sigma_z + np.dot(self.means_z,self.means_z.T)) )
         self_means_w = np.dot((self.a_tau_tilde/self.b_tau_tilde)*self.sigma_w, np.dot(self.means_z, (X - self.mean_mu).T)).T
         
         if DEBUG:
@@ -159,9 +152,9 @@ class BayesianPCA(object):
     
     def fit(self, X):
         iterations = 100000
-        print "fitting the mode..."
+        print "fitting the model..."
         for x in xrange(iterations):
-            if (x%(iterations/10)==0):
+            if (x%(iterations/10.0)==0.0):
                 print ".",
             vPca.__checkSizes()
             self.__update_z(X)
@@ -175,3 +168,9 @@ X = np.random.randn(4,2)
 vPca = BayesianPCA(4,2)
 vPca.fit(X)
 vPca.CheckFittedModel(X)
+
+z = np.random.randn(2, 4)
+a = np.array([1, 2, 3]).reshape((3,1))
+b = np.array([1, 2, 3]).reshape((3,1))
+print np.multiply(a,b.T)
+print 
