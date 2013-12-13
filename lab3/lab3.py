@@ -1,5 +1,6 @@
 import scipy.special as sp
 import numpy as np
+import sys
 
 DEBUG = 0
 
@@ -33,19 +34,26 @@ class BayesianPCA(object):
 
     def __checkSizes(self):
         if(self.means_z.shape != (self.d, self.N)):
-            print "ERROR.shape == ()"
+            print "ERRORself.means_z.shape"
+            sys.exit()
         if(self.sigma_z.shape != (self.d, self.d)):
             print "ERRORself.sigma_z"
+            sys.exit()
         if(self.mean_mu.shape != (self.d, 1)):
             print "ERRORself.mean_mu"
+            sys.exit()
         if(self.sigma_mu.shape != (self.d, self.d)):
             print "ERRORelf.sigma_mu"
+            sys.exit()
         if(self.means_w.shape != (self.d, self.d)):
             print "ERRORself.means_w"
+            sys.exit()
         if(self.sigma_w.shape != (self.d, self.d)):
             print "ERRORself.sigma_w"
+            sys.exit()
         if(self.bs_alpha_tilde.shape != (self.d, 1)):
             print "ERROR_bs_alpha_tilde"
+            sys.exit()
     
     def __update_z(self, X):
         """
@@ -88,7 +96,9 @@ class BayesianPCA(object):
             print "self.sigma_mu\n", self.mean_mu
     
     def __update_w(self, X):
+
         # TODO fix this
+
         # # sigma of w
         # exp_tau = self.a_tau_tilde / self.b_tau_tilde
         # a_diag = np.identity(self.d) * (self.a_alpha_tilde / self.b_tau_tilde)
@@ -140,20 +150,28 @@ class BayesianPCA(object):
     def L(self, X):
         L = 0.0
         return L
+
+    def CheckFittedModel(self, X):
+        print "Checking if the model is well fitted..."
+        print "Matrices must be identical:"
+        print X
+        print np.dot(self.means_w,self.means_z) + self.mean_mu
     
     def fit(self, X):
         iterations = 100000
+        print "fitting the mode..."
         for x in xrange(iterations):
-            print x
+            if (x%(iterations/10)==0):
+                print ".",
             vPca.__checkSizes()
             self.__update_z(X)
             self.__update_mu(X)
             self.__update_w(X)
             self.__update_alpha()
             self.__update_tau(X)
-        print X
-        print np.dot(self.means_w,self.means_z) + self.mean_mu
+        print "\n",iterations, "iterations done"
 
 X = np.random.randn(4,2)
 vPca = BayesianPCA(4,2)
 vPca.fit(X)
+vPca.CheckFittedModel(X)
