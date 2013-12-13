@@ -1,7 +1,7 @@
 import scipy.special as sp
 import numpy as np
 
-DEBUG = 1
+DEBUG = 0
 
 class BayesianPCA(object):
     
@@ -50,15 +50,16 @@ class BayesianPCA(object):
         self.sigma_z = (np.identity(self.d)+exp_tau*exp_WTW)**(-1)
         #update m_z
         for i in range(self.N):
-            self.means_z[:,i] = (np.dot(exp_tau * self.sigma_z * exp_WT, (X[:,i].reshape(self.d,1) - exp_mu))).reshape(self.d)
+            # TODO fix it
+            self.means_z[:,i] = (np.dot(exp_tau * self.sigma_z * exp_WT, (X[:,i].reshape(self.d,1) - exp_mu)))
             # generation of new latent data
             self.data[:,i] = np.random.multivariate_normal(self.means_z[:,i], self.sigma_z, 1)
         if DEBUG:
             print "============= UPDATE_Z =============="
             print "self.means_z\n", self.means_z
-            print "self.data\n", self.data
+            print "self.sigma_z\n", self.sigma_z
     
-    def __update_mu(self):
+    def __update_mu(self, X):
         """
         Q(mu) = N(mu|m_mu,sigma_mu)
             where m_mu = <tau>*sigma_mu*sum_n(x_n-<W><z_n>)
@@ -75,42 +76,46 @@ class BayesianPCA(object):
             print "self.sigma_mu\n", self.mean_mu
     
     def __update_w(self, X):
-        a_diag = np.diag(np.zeros((self.d,self.d)) + self.a_alpha / self.b_alpha)
+        # sigma of w
         exp_tau = self.a_tau_tilde / self.b_tau_tilde
-        self.sigma_w = np.sum(np.dot(self.means_z, self.means_z.T), axis = 0)
-
-        # TODO means_w
-
-        # for k in xrange(self.d):
-        #     sum_ = 0
-        #     for n in xrange(self.N):
-        #         sum_ += self.means_z[n] * (X[k,n] - self.mean_mu[k])
-        #     print sum_
-        #     print self.sigma_w
-        #     self.means_w[k] = self.sigma_w * sum_
-        # print self.means_w
-
+        a_diag = np.identity(self.d) * (self.a_alpha_tilde / self.b_tau_tilde)
+        self.sigma_w = np.linalg.inv(a_diag + exp_tau * np.sum(self.sigma_z + np.dot(self.means_z, self.means_z.T), axis = 0))
+        # means of w
+        sum_ = np.zeros(self.d)
+        for n in xrange(self.N):
+            sum_ += self.means_z[:,n] * (X[:,n] - self.mean_mu)
+        self.means_w = exp_tau * self.sigma_w * sum_
+        
         if DEBUG:
             print "============= UPDATE_W =============="
             print "self.sigma_w\n", self.sigma_w
-            print "self.sigma_w\n", self.means_w
+            print "self.means_w\n", self.means_w
 
     
     def __update_alpha(self):
+        # a_alpha_tilted
         self.a_alpha_tilde = self.a_alpha + self.d / 2
-        self.a_tau_tilde = self.a_tau + .5 * (self.N * self.d)
+        # bs_alpha_tilde
+        for i in xrange(self.d):
+            self.bs_alpha_tilde[i] = self.b_alpha + np.dot(self.means_w[i], self.means_w.T[i])/2
+
         if DEBUG:
             print "============= UPDATE_alpha =============="
             print "self.a_alpha_tilde\n", self.a_alpha_tilde
-            print "self.a_tau_tilde\n", self.a_tau_tilde
+            print "self.bs_alpha_tilde\n", self.bs_alpha_tilde
 
     def __update_tau(self, X):
-        # TODO
-        for i in xrange(self.d):
-            self.bs_alpha_tilde[i] = 0
+        self.a_tau_tilde = self.a_tau + (self.N * self.d) / 2
+        sum_ = 0
+        for n in xrange(self.N):
+            sum_ += np.dot(X.T[n] , X.T[n]) + np.dot(self.means_z.T[n], self.means_z.T[n])
+            + np.trace((self.means_w.T*self.means_w) * (self.sigma_z + np.dot(self.means_z, self.means_z.T)))
+            + 2 * np.dot(np.dot(self.mean_mu.T, self.means_w), self.means_z.T[n])
+            - 2 * np.dot(np.dot(X.T[n], self.means_w), self.means_z.T[n]) - 2 * np.dot(X.T[n], self.mean_mu.T)
+        self.b_tau_tilde = self.b_tau + sum_ / 2
         if DEBUG:
             print "============= UPDATE_tau =============="
-            print "self.bs_alpha_tilde\n", self.bs_alpha_tilde
+            print "self.bs_alpha_tilde\n", self.a_tau_tilde
             print "self.b_tau_tilde\n", self.b_tau_tilde
 
     def L(self, X):
@@ -119,11 +124,13 @@ class BayesianPCA(object):
     
     def fit(self, X):
         self.__update_z(X)
-        self.__update_mu()
+        self.__update_mu(X)
         self.__update_w(X)
         self.__update_alpha()
         self.__update_tau(X)
 
 X = np.random.randn(4,2)
 vPca = BayesianPCA(4,2)
+
+vPca.fit(X)
 vPca.fit(X)
