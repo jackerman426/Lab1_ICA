@@ -1,6 +1,7 @@
 import scipy.special as sp
 import numpy as np
 import sys
+import cPickle, gzip
 
 DEBUG = 0
 
@@ -163,3 +164,9 @@ X = np.random.randn(4,2)
 vPca = BayesianPCA(4,2)
 vPca.fit(X)
 vPca.CheckFittedModel(X)
+
+f = gzip.open('mnist.pkl.gz', 'rb')
+train_set, valid_set, test_set = cPickle.load(f)
+f.close()
+
+print valid_set[1][0]
