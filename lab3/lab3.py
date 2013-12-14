@@ -147,7 +147,7 @@ class BayesianPCA(object):
         print np.dot(self.means_w,self.means_z) + self.mean_mu
     
     def fit(self, X):
-        iterations = 100000
+        iterations = 10000
         print "fitting the model..."
         for x in xrange(iterations):
             if (x%(iterations/10.0)==0.0):
@@ -160,13 +160,17 @@ class BayesianPCA(object):
             self.__update_tau(X)
         print "\n",iterations, "iterations done"
 
-X = np.random.randn(4,2)
-vPca = BayesianPCA(4,2)
+
+
+mean = (0,0,0,0)
+cov = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
+X = np.random.multivariate_normal(mean,cov,5)
+vPca = BayesianPCA(5,4)
 vPca.fit(X)
 vPca.CheckFittedModel(X)
 
-f = gzip.open('mnist.pkl.gz', 'rb')
-train_set, valid_set, test_set = cPickle.load(f)
-f.close()
+# f = gzip.open('mnist.pkl.gz', 'rb')
+# train_set, valid_set, test_set = cPickle.load(f)
+# f.close()
 
-print valid_set[1][0]
+# print valid_set[1][0]
