@@ -1,0 +1,4 @@
+*.aux
+*.log
+/lab3/math.synctex.gz
+/lab3/math.pdf
