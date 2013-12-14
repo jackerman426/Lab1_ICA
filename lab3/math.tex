@@ -32,13 +32,44 @@ Now, we are going to expand each term of the above equation:
 &\mathbb{E}_Q\left( \cfrac{Nq}{2}\ln \left( \cfrac{1}{2\pi} \right) \right) + \mathbb{E}_Q\left( \cfrac{q}{2} \ln \mathbf{\Sigma_x}  \right) + \mathbb{E}_Q\left( \sum_{n=1}^N (-\frac{1}{2}(\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x})) \right) = \\
 &\mathbb{E}_Q\left( \sum_{n=1}^N (-\frac{1}{2}(\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x})) \right) + const = \\
 &-\cfrac{1}{2} \sum_{n=1}^N \int Q(x_n) (\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x})\mathrm{d}x_n + const =,\text{ 3.57 Matrix Cookbook}\\
-&= \cfrac{N}{2} + Trace(\Sigma_x \Sigma_x) + const = \\
+&= \cfrac{N}{2} + Trace(\Sigma_x \Sigma_x^{-1}) + const = \\
 &= \cfrac{Nq}{2} +const
 \end{align*}
 \item 
+\begin{equation*}
+\mathbb{E}_Q \left( \ln \mathcal{N}(\mathbf{\mu}|\mathbf{m_{\mu}, \mathbf{\Sigma}_x})\right) =  const\text{, similar to the previous derivation.} \\
+\end{equation*}
+\item
+\begin{equation*}
+\mathbb{E}_Q \left( \ln \prod_{k=1}^d \mathcal{N} (\tilde{w}_k|m_w^{(k)},\Sigma_w)\right) =  const\text{, similar to the previous two derivations.} \\
+\end{equation*}
+\item
 \begin{align*}
-& \mathbb{E}_Q \left( \ln \mathcal{N}(\mathbf{\mu}|\mathbf{m_{\mu}, \mathbf{\Sigma}_x})\right) = \\
-&\\
+& \mathbb{E}_Q \left( \ln \prod_{i=1}^q \Gamma (a_i | \tilde{a}_a, \tilde{b}_{ai})\right)= \\
+& \mathbb{E}_Q\left( \sum_{i=1}^q \ln \Gamma (a_i | \tilde{a}_a, \tilde{b}_{ai}) \right) =\\
+& \mathbb{E}_Q\left( \sum_{i=1}^q \ln \left( \cfrac{1}{\Gamma(\tilde{a}_a)} b_{\tilde{a}i}^{\tilde{a}_a} a_i^{\tilde{a}_a -1} e^{-\tilde{b}_{ai}a_i} \right) \right)=\\
+& \mathbb{E}_Q\left( \sum_{i=1}^q \left( - \ln\Gamma(\tilde{a}_a) +\ln b_{\tilde{a}i}^{\tilde{a}_a} +\ln a_i^{\tilde{a}_a -1} - \tilde{b}_{ai}a_i  \right) \right)=\\
+& -\int \mathrm{d}a_i \sum_{i=1}^q  Q(a_i) \ln\Gamma(\tilde{a}_a) + \int \mathrm{d}a_i \sum_{i=1}^q  Q(a_i) \ln b_{\tilde{a}i}^{\tilde{a}_a} + \int \mathrm{d}a_i \sum_{i=1}^q  Q(a_i) \ln a_i^{\tilde{a}_a -1} - \int \mathrm{d}a_i \sum_{i=1}^q  Q(a_i) \tilde{b}_{ai}a_i =\\
+&\text{, in which the first two terms are constants...}\\
+&\int \mathrm{d}a_i \sum_{i=1}^q  Q(a_i) \ln a_i^{\tilde{a}_a -1} - \int \mathrm{d}a_i \sum_{i=1}^q  Q(a_i) \tilde{b}_{ai}a_i +const=\\
+& (\tilde{a}_a -1)\sum_{i=1}^q \int \mathrm{d}a_i   Q(a_i) \ln a_i - \sum_{i=1}^q \tilde{b}_{ai} \int \mathrm{d}a_i  Q(a_i) a_i +const=\\
+&(\tilde{a}_a -1)\sum_{i=1}^q \mathbb{E}_Q[\ln a_i]  - \sum_{i=1}^q \tilde{b}_{ai} \mathbb{E}_Q[a_i]+const  =\\
+& (\tilde{a}_a -1)\sum_{i=1}^q \left( \cfrac{\Gamma'(\tilde{a}_a)}{\Gamma(\tilde{a}_a)} - \ln(\tilde{b}_{ai})\right)  - \sum_{i=1}^q \tilde{b}_{ai} \cfrac{\tilde{a}_a}{\tilde{b}_{ai}} +const
+\end{align*}
+\item
+\begin{align*}
+&\mathbb{E}_Q \left( \ln \Gamma (\tau | \tilde{a}_{\tau}, \tilde{b}_{\tau})\right) = \\
+&\mathbb{E}_Q \left( \ln \left( \cfrac{1}{\Gamma(\tilde{a}_{\tau})} \tilde{b}_{\tau}^{\tilde{a}_{\tau}} \tau^{\tilde{a}_{\tau} -1 } e^{-\tilde{b}_{\tau} \tau} \right) \right) = \\
+&\mathbb{E}_Q \left( \ln \cfrac{1}{\Gamma(\tilde{a}_{\tau})} + \ln \tilde{b}_{\tau}^{\tilde{a}_{\tau}}+\ln \tau^{\tilde{a}_{\tau} -1 } + \ln e^{-\tilde{b}_{\tau} \tau} \right) = \\
+&\mathbb{E}_Q \left( \ln \cfrac{1}{\Gamma(\tilde{a}_{\tau})} + \ln \tilde{b}_{\tau}^{\tilde{a}_{\tau}}+\ln \tau^{\tilde{a}_{\tau} -1 } -\tilde{b}_{\tau} \tau \right) = \\
+& \mathbb{E}_Q \left( \ln \cfrac{1}{\Gamma(\tilde{a}_{\tau})} \right) + \mathbb{E}_Q \left( \ln \tilde{b}_{\tau}^{\tilde{a}_{\tau}} \right) + \mathbb{E}_Q \left( \ln \tau^{\tilde{a}_{\tau} -1 } \right) + \mathbb{E}_Q \left( -\tilde{b}_{\tau} \tau \right) =\\
+&\int \mathrm{d}\tau Q(\tau)\ln \cfrac{1}{\Gamma(\tilde{a}_{\tau})}  + \int \mathrm{d}\tau Q(\tau)\ln \tilde{b}_{\tau}^{\tilde{a}_{\tau}}  + \int \mathrm{d}\tau Q(\tau) \ln \tau^{\tilde{a}_{\tau} -1 } + \int \mathrm{d}\tau  Q(\tau) -\tilde{b}_{\tau} \tau=\\
+&\text{, in which the first two terms are constants as they are independent of tau.}\\
+& \int \mathrm{d}\tau Q(\tau) \ln \tau^{\tilde{a}_{\tau} -1 } + \int \mathrm{d}\tau  Q(\tau) (-\tilde{b}_{\tau} \tau) + const=\\
+& (\tilde{a}_{\tau} -1) \int \mathrm{d}\tau Q(\tau) \ln \tau - \tilde{b}_{\tau}\int \mathrm{d}\tau  Q(\tau) \tau+ const=\\
+&(\tilde{a}_{\tau} -1) \mathbb{E}_Q(\ln \tau) - \tilde{b}_{\tau} \mathbb{E}_Q(\tau)+ const=\\
+&(\tilde{a}_{\tau} -1)\left( \cfrac{\Gamma'(\tilde{a}_{\tau})}{\Gamma(\tilde{a}_{\tau})} - \ln(\tilde{b}_{\tau}) \right) - \tilde{b}_{\tau} \cfrac{\tilde{a}_{\tau}}{\tilde{b}_{\tau}}+ const =\\
+&(\tilde{a}_{\tau} -1)\left( \cfrac{\Gamma'(\tilde{a}_{\tau})}{\Gamma(\tilde{a}_{\tau})} - \ln(\tilde{b}_{\tau}) \right) - \tilde{a}_{\tau}+ const
 \end{align*}
 \end{itemize}
 \end{document}
