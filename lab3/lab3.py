@@ -164,12 +164,15 @@ class BayesianPCA(object):
         #E(lnQ(alpha))
         exp_ln_qa_temp = 0
         for i in xrange(self.d):
-            exp_ln_qa_temp +=  (sp.psi(self.a_alpha_tilde) - np.log(self.bs_alpha_tilde[i]))
-        exp_ln_qa = (self.a_tau_tilde - 1) * (exp_ln_qa_temp) - self.d*self.a_alpha_tilde
-        print exp_ln_qa
+            exp_ln_qa_temp +=  (sp.psi(self.a_alpha_tilde) - np.log(self.bs_alpha_tilde[i][0]))
+        exp_ln_qa = (self.a_alpha_tilde - 1) * (exp_ln_qa_temp) - self.d*self.a_alpha_tilde
 
-        #E(lnQ())
-        # return L
+        #E(lnQ(\tau))
+        exp_ln_qt =  (self.a_tau_tilde - 1) * (sp.psi(self.a_tau_tilde) - np.log(self.b_tau_tilde)) - self.a_tau_tilde
+
+
+        L = exp_ln_pz + exp_ln_pwa + exp_ln_pa + exp_ln_pmu + exp_ln_ptau + exp_ln_qa + exp_ln_qt
+
 
     def CheckFittedModel(self, X):
         print "Checking if the model is well fitted..."
