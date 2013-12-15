@@ -1,0 +1,44 @@
+\documentclass[11pt,notitlepage]{article}
+
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shapes,shapes.geometric,arrows,fit,calc,positioning,automata,}
+\usetikzlibrary{fit,positioning}
+\usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+\usepackage{amsfonts, amsmath, amsthm, amssymb} % For math fonts, symbols and environments
+\usepackage{graphicx} % Required for including images
+\usepackage{booktabs} % Top and bottom rules for table
+\usepackage{wrapfig} % Allows in-line images
+\usepackage[labelfont=bf]{caption} % Make figure numbering in captions bold
+\usepackage[top=0.5in,bottom=0.5in,left=0.5in,right=0.5in]{geometry}
+
+
+\begin{document}
+For the first term of the lower bound equation we have:
+\begin{align*}
+& \mathbb{E}(\ln Q(\theta)) =\\
+& \mathbb{E}(\ln \prod_i Q_i(\theta_i)) =\\
+& \mathbb{E}_Q \left( \ln \prod_{n=1}^N \mathcal{N}(X_n|m_x,\Sigma_x)\right) + \mathbb{E}_Q \left( \ln \mathcal{N}(\mathbf{\mu}|\mathbf{m_{\mu}, \mathbf{\Sigma}_x})\right) + \mathbb{E}_Q \left( \ln \prod_{k=1}^d \mathcal{N} (\tilde{w}_k|m_w^{(k)},\Sigma_w)\right)\\
+&+ \mathbb{E}_Q \left( \ln \prod_{i=1}^q \Gamma (a_i | \tilde{a}_a, \tilde{b}_{ai})\right) + \mathbb{E}_Q \left( \ln \Gamma (\tau | \tilde{a}_{\tau}, \tilde{b}_{\tau})\right)
+\end{align*}
+Now, we are going to expand each term of the above equation:
+\begin{itemize}
+\item 
+\begin{align*}
+&\mathbb{E}_Q \left( \ln \prod_{n=1}^N \mathcal{N}(X_n|m_x,\Sigma_x)\right) = \\
+&\mathbb{E}_Q \left(\sum_{n=1}^N \ln \mathcal{N}(X_n|m_x,\Sigma_x) \right)=\\
+&\sum_{n=1}^N \mathbb{E}_Q \left( \ln \left( \left( \cfrac{1}{2\pi}\right)^{q/2} \mathbf{\Sigma_x}^{-1/2} \exp (-\frac{1}{2}(\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x}) )\right) \right)=\\
+&\mathbb{E}_Q\left( \cfrac{Nq}{2}\ln \left( \cfrac{1}{2\pi} \right) \right) + \mathbb{E}_Q\left( \cfrac{q}{2} \ln \mathbf{\Sigma_x}  \right) + \mathbb{E}_Q\left( \sum_{n=1}^N (-\frac{1}{2}(\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x})) \right) = \\
+&\mathbb{E}_Q\left( \sum_{n=1}^N (-\frac{1}{2}(\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x})) \right) + const = \\
+&-\cfrac{1}{2} \sum_{n=1}^N \int Q(x_n) (\mathbf{x_n} - \mathbf{m_x})^T \mathbf{\Sigma_x}^{-1}(\mathbf{x_n} - \mathbf{m_x})\mathrm{d}x_n + const =,\text{ 3.57 Matrix Cookbook}\\
+&= \cfrac{N}{2} + Trace(\Sigma_x \Sigma_x) + const = \\
+&= \cfrac{Nq}{2} +const
+\end{align*}
+\item 
+\begin{align*}
+& \mathbb{E}_Q \left( \ln \mathcal{N}(\mathbf{\mu}|\mathbf{m_{\mu}, \mathbf{\Sigma}_x})\right) = \\
+&\\
+\end{align*}
+\end{itemize}
+\end{document}
