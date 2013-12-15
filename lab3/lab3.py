@@ -112,7 +112,7 @@ class BayesianPCA(object):
         self.a_alpha_tilde = self.a_alpha + self.d / 2
         # bs_alpha_tilde
         for i in xrange(self.d):
-            self.bs_alpha_tilde[i] = self.b_alpha + np.dot(self.means_w[i], self.means_w.T[i])/2
+            self.bs_alpha_tilde[i] = np.abs(self.b_alpha + np.dot(self.means_w[i], self.means_w.T[i])/2)
         # debug prints
         if DEBUG:
             print "============= UPDATE_alpha =============="
@@ -139,16 +139,46 @@ class BayesianPCA(object):
 
     def L(self, X):
         L = 0.0
-        return L
+        # E[ln P(Z)]
+        exp_ln_pz = -(self.N / 2)*np.trace(self.sigma_z)
+        for n in xrange(self.N):
+            exp_ln_pz += -(1/2)*np.dot(self.means_z[:,n].T,self.means_z[:,n])
+        
+        #E[ln P(W|a)]
+        exp_ln_pwa = 0
+        for i in xrange(self.d):
+            exp_ln_pwa += (-self.d /2) * (sp.psi(self.a_alpha_tilde)-np.log(self.bs_alpha_tilde[i][0]))- 1/2 * (np.trace(self.sigma_w) + np.dot(self.means_w[i].T, self.means_w[i]))
+
+
+        #E[lnP(a)]
+        exp_ln_pa = 0
+        for i in xrange(self.d):
+            exp_ln_pa += (self.a_alpha - 1) * (sp.psi(self.a_alpha_tilde) - np.log(self.bs_alpha_tilde[i][0])) - self.b_alpha * (self.a_alpha_tilde / self.bs_alpha_tilde[i][0])
+
+        #E[lnP(mu)]
+        exp_ln_pmu = -(self.beta / 2) * (np.trace(self.sigma_mu) + np.dot(self.mean_mu,self.mean_mu.T)[0][0])
+        
+        #E[lnP(tau)]
+        exp_ln_ptau = (sp.psi(self.a_tau_tilde) - np.log(self.b_tau_tilde)) - (self.a_tau_tilde / self.b_tau_tilde)
+
+        #E(lnQ(alpha))
+        exp_ln_qa_temp = 0
+        for i in xrange(self.d):
+            exp_ln_qa_temp +=  (sp.psi(self.a_alpha_tilde) - np.log(self.bs_alpha_tilde[i]))
+        exp_ln_qa = (self.a_tau_tilde - 1) * (exp_ln_qa_temp) - self.d*self.a_alpha_tilde
+        print exp_ln_qa
+
+        #E(lnQ())
+        # return L
 
     def CheckFittedModel(self, X):
         print "Checking if the model is well fitted..."
         print "Matrices must be identical:"
-        print X
-        print np.dot(self.means_w,self.means_z) + self.mean_mu
+        # print X
+        # print np.dot(self.means_w,self.means_z) + self.mean_mu
     
     def fit(self, X):
-        iterations = 10000
+        iterations = 1000
         print "fitting the model..."
         for x in xrange(iterations):
             if (x%(iterations/10.0)==0.0):
@@ -159,6 +189,7 @@ class BayesianPCA(object):
             self.__update_w(X)
             self.__update_alpha()
             self.__update_tau(X)
+            self.L(X)
         print "\n",iterations, "iterations done"
     def _blob(self,x,y,area,colour):
         """
