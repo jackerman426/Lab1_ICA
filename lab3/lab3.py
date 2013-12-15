@@ -1,5 +1,6 @@
 import scipy.special as sp
 import numpy as np
+import pylab as P
 import sys
 import cPickle, gzip
 
@@ -159,18 +160,58 @@ class BayesianPCA(object):
             self.__update_alpha()
             self.__update_tau(X)
         print "\n",iterations, "iterations done"
+    def _blob(self,x,y,area,colour):
+        """
+        Draws a square-shaped blob with the given area (< 1) at
+        the given coordinates.
+        Source: http://wiki.scipy.org/Cookbook/Matplotlib/HintonDiagrams
+        """
+        hs = np.sqrt(area) / 2
+        xcorners = np.array([x - hs, x + hs, x + hs, x - hs])
+        ycorners = np.array([y - hs, y - hs, y + hs, y + hs])
+        P.fill(xcorners, ycorners, colour, edgecolor=colour)
+
+    def hinton(self, maxWeight=None):
+        """
+        Draws a Hinton diagram for visualizing a weight matrix. 
+        Temporarily disables matplotlib interactive mode if it is on, 
+        otherwise this takes forever.
+        Source: http://wiki.scipy.org/Cookbook/Matplotlib/HintonDiagrams
+        """
+        reenable = False
+        if P.isinteractive():
+            P.ioff()
+        P.clf()
+        height, width = self.sigma_w.shape
+        if not maxWeight:
+            maxWeight = 2**np.ceil(np.log(np.max(np.abs(self.sigma_w)))/np.log(2))
+
+        P.fill(np.array([0,width,width,0]),np.array([0,0,height,height]),'gray')
+        P.axis('off')
+        P.axis('equal')
+        for x in xrange(width):
+            for y in xrange(height):
+                _x = x+1
+                _y = y+1
+                w = self.sigma_w[y,x]
+                if w > 0:
+                    self._blob(_x - 0.5, height - _y + 0.5, min(1,w/maxWeight),'white')
+                elif w < 0:
+                    self._blob(_x - 0.5, height - _y + 0.5, min(1,-w/maxWeight),'black')
+        if reenable:
+            P.ion()
+        P.show()
 
 
-
-mean = (0,0,0,0)
-cov = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
-X = np.random.multivariate_normal(mean,cov,5)
-vPca = BayesianPCA(5,4)
+mean = np.zeros(10)
+cov = np.diag([5,4,3,2,1,1,1,1,1,1])
+X = np.random.multivariate_normal(mean,cov,100).T
+vPca = BayesianPCA(10,100)
 vPca.fit(X)
 vPca.CheckFittedModel(X)
+# http://wiki.scipy.org/Cookbook/Matplotlib/HintonDiagrams
+vPca.hinton()
 
-# f = gzip.open('mnist.pkl.gz', 'rb')
-# train_set, valid_set, test_set = cPickle.load(f)
-# f.close()
-
-# print valid_set[1][0]
+f = gzip.open('mnist.pkl.gz', 'rb')
+train_set, valid_set, test_set = cPickle.load(f)
+f.close()
